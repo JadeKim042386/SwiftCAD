@@ -30,7 +30,12 @@ class NewCADLoss(nn.Module):
         mask = self.cmd_args_mask[tgt_commands.long()]
 
         loss_cmd = F.cross_entropy(command_logits[padding_mask.bool()].reshape(-1, self.n_commands), tgt_commands[padding_mask.bool()].reshape(-1).long())
-        loss_args = gumbel_loss(args_logits, tgt_args, mask)
+        loss_args = squared_emd_loss(
+            logits=args_logits, 
+            labels=tgt_args, 
+            num_classes=args_logits.shape[-1], 
+            mask=mask
+        )
 
         loss_cmd = self.weights["loss_cmd_weight"] * loss_cmd
         loss_args = self.weights["loss_args_weight"] * loss_args
@@ -58,3 +63,48 @@ def gumbel_loss(pred, target, mask, tolerance=3, alpha=2.0):
     loss_valid = (loss_per_position * mask).sum() / mask.sum()
 
     return loss_valid
+
+def squared_emd_loss_one_hot_labels(y_pred, y_true, mask=None):
+    """
+    Squared EMD loss that considers the distance between classes as opposed to the cross-entropy
+    loss which only considers if a prediction is correct/wrong.
+
+    Squared Earth Mover's Distance-based Loss for Training Deep Neural Networks.
+    Le Hou, Chen-Ping Yu, Dimitris Samaras
+    https://arxiv.org/abs/1611.05916
+
+    Args:
+        y_pred (torch.FloatTensor): Predicted probabilities of shape (batch_size x ... x num_classes)
+        y_true (torch.FloatTensor): Ground truth one-hot labels of shape (batch_size x ... x num_classes)
+        mask (torch.FloatTensor): Binary mask of shape (batch_size x ...) to ignore elements (e.g. padded values)
+                                  from the loss
+    
+    Returns:
+        torch.tensor: Squared EMD loss
+    """
+    tmp = torch.mean(torch.square(torch.cumsum(y_true, dim=-1) - torch.cumsum(y_pred, dim=-1)), dim=-1)
+    if mask is not None:
+        tmp = tmp * mask
+    return torch.sum(tmp) / tmp.shape[0]
+
+def squared_emd_loss(logits, labels, num_classes=-1, mask=None):
+    """
+    Squared EMD loss that considers the distance between classes as opposed to the cross-entropy
+    loss which only considers if a prediction is correct/wrong.
+
+    Squared Earth Mover's Distance-based Loss for Training Deep Neural Networks.
+    Le Hou, Chen-Ping Yu, Dimitris Samaras
+    https://arxiv.org/abs/1611.05916
+
+    Args:
+        logits (torch.FloatTensor): Predicted logits of shape (batch_size x ... x num_classes)
+        labels (torch.LongTensor): Ground truth class labels of shape (batch_size x ...)
+        mask (torch.FloatTensor): Binary mask of shape (batch_size x ...) to ignore elements (e.g. padded values)
+                                  from the loss
+    
+    Returns:
+        torch.tensor: Squared EMD loss
+    """
+    y_pred = torch.softmax(logits, dim=-1)
+    y_true = F.one_hot(labels, num_classes=num_classes).float()
+    return squared_emd_loss_one_hot_labels(y_pred, y_true, mask=mask)
