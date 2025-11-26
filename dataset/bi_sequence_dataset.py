@@ -37,7 +37,7 @@ class BiSequenceDataset(Dataset):
         return self.__getitem__(idx)
 
     def get_svg_data(self, data_id):
-        npy_path = os.path.join(self.svg_vec, data_id + "_merged.npy")
+        npy_path = os.path.join(self.svg_vec, data_id + ".npy")
         data = np.load(npy_path)
 
         # 1x

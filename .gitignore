@@ -214,3 +214,6 @@ pyrightconfig.json
 **/data/
 **/.vscode/
 **.json
+**/proj_log/
+**/wandb/
+**.svg

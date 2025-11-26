@@ -1,3 +1,4 @@
+import wandb
 import torch
 import torch.optim as optim
 from tqdm import tqdm
@@ -99,7 +100,11 @@ class TrainerED(BaseTrainer):
         arc_acc = np.mean(np.concatenate(all_arc_args_comp, axis=0))
         circle_acc = np.mean(np.concatenate(all_circle_args_comp, axis=0))
 
-        self.val_tb.add_scalars("args_acc",
-                                {"line": line_acc, "arc": arc_acc, "circle": circle_acc,
-                                 "plane": sket_plane_acc, "trans": sket_trans_acc, "extent": extent_one_acc},
-                                global_step=self.clock.epoch)
+        wandb.log({
+            "args_acc/line": line_acc, 
+            "args_acc/arc": arc_acc, 
+            "args_acc/circle": circle_acc,
+            "args_acc/plane": sket_plane_acc, 
+            "args_acc/trans": sket_trans_acc, 
+            "args_acc/extent": extent_one_acc
+        }, step=self.clock.step)

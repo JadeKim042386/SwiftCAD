@@ -3,7 +3,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from abc import abstractmethod
-from tensorboardX import SummaryWriter
+import wandb
 
 
 class BaseTrainer(object):
@@ -27,9 +27,8 @@ class BaseTrainer(object):
         # set optimizer
         self.set_optimizer(cfg)
 
-        # set tensorboard writer
-        self.train_tb = SummaryWriter(os.path.join(self.log_dir, 'train.events'))
-        self.val_tb = SummaryWriter(os.path.join(self.log_dir, 'val.events'))
+        # set wandb
+        wandb.init(project="Drawing2CAD", config=cfg)
 
     @abstractmethod
     def build_net(self, cfg):
@@ -101,16 +100,15 @@ class BaseTrainer(object):
 
     def update_learning_rate(self):
         """record and update learning rate"""
-        self.train_tb.add_scalar('learning_rate', self.optimizer.param_groups[-1]['lr'], self.clock.epoch)
+        wandb.log({'learning_rate': self.optimizer.param_groups[-1]['lr']}, step=self.clock.step)
         self.scheduler.step()
 
     def record_losses(self, loss_dict, mode='train'):
         """record loss to tensorboard"""
         losses_values = {k: v.item() for k, v in loss_dict.items()}
 
-        tb = self.train_tb if mode == 'train' else self.val_tb
         for k, v in losses_values.items():
-            tb.add_scalar(k, v, self.clock.step)
+            wandb.log({f'{mode}/{k}': v}, step=self.clock.step)
 
     def train_func(self, data):
         """one step of training"""

@@ -30,15 +30,22 @@ class NewCADLoss(nn.Module):
         mask = self.cmd_args_mask[tgt_commands.long()]
 
         loss_cmd = F.cross_entropy(command_logits[padding_mask.bool()].reshape(-1, self.n_commands), tgt_commands[padding_mask.bool()].reshape(-1).long())
+        # loss_args = gumbel_loss(args_logits, tgt_args, mask)
+
+        # args_logits: (batchsize, 60, 16, 257)
+        # tgt_args: (batchsize, 60, 16)
+        # mask: (batchsize, 60, 16)
+        tgt_args_masked = tgt_args.clone()
+        tgt_args_masked[tgt_args_masked == -1] = 0 # mask를 통해 어차피 무시되기 때문에 -1을 0으로 변환 
         loss_args = squared_emd_loss(
             logits=args_logits, 
-            labels=tgt_args, 
+            labels=tgt_args_masked, 
             num_classes=args_logits.shape[-1], 
             mask=mask
         )
 
         loss_cmd = self.weights["loss_cmd_weight"] * loss_cmd
-        loss_args = self.weights["loss_args_weight"] * loss_args
+        loss_args = loss_args.pow(self.weights["loss_args_weight"])
 
         res = {"loss_cmd": loss_cmd, "loss_args": loss_args}
         return res
@@ -105,6 +112,6 @@ def squared_emd_loss(logits, labels, num_classes=-1, mask=None):
     Returns:
         torch.tensor: Squared EMD loss
     """
-    y_pred = torch.softmax(logits, dim=-1)
-    y_true = F.one_hot(labels, num_classes=num_classes).float()
+    y_pred = torch.softmax(logits, dim=-1) # (batchsize, 60, 16, 257)
+    y_true = F.one_hot(labels, num_classes=num_classes).float() # (batchsize, 60, 16)
     return squared_emd_loss_one_hot_labels(y_pred, y_true, mask=mask)
