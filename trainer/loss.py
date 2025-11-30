@@ -30,22 +30,21 @@ class NewCADLoss(nn.Module):
         mask = self.cmd_args_mask[tgt_commands.long()]
 
         loss_cmd = F.cross_entropy(command_logits[padding_mask.bool()].reshape(-1, self.n_commands), tgt_commands[padding_mask.bool()].reshape(-1).long())
+        loss_args = F.cross_entropy(args_logits[mask.bool()].reshape(-1, self.args_dim), tgt_args[mask.bool()].reshape(-1).long() + 1)  # shift due to -1 PAD_VAL
         # loss_args = gumbel_loss(args_logits, tgt_args, mask)
 
         # args_logits: (batchsize, 60, 16, 257)
         # tgt_args: (batchsize, 60, 16)
         # mask: (batchsize, 60, 16)
-        tgt_args_masked = tgt_args.clone()
-        tgt_args_masked[tgt_args_masked == -1] = 0 # mask를 통해 어차피 무시되기 때문에 -1을 0으로 변환 
-        loss_args = squared_emd_loss(
-            logits=args_logits, 
-            labels=tgt_args_masked, 
-            num_classes=args_logits.shape[-1], 
-            mask=mask
-        )
+        # loss_args = squared_emd_loss(
+        #     logits=args_logits, 
+        #     labels=tgt_args + 1, 
+        #     num_classes=args_logits.shape[-1], 
+        #     mask=mask
+        # )
 
         loss_cmd = self.weights["loss_cmd_weight"] * loss_cmd
-        loss_args = loss_args.pow(self.weights["loss_args_weight"])
+        loss_args = self.weights["loss_args_weight"] * loss_args
 
         res = {"loss_cmd": loss_cmd, "loss_args": loss_args}
         return res

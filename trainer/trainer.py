@@ -1,4 +1,5 @@
 import wandb
+import os
 import torch
 import torch.optim as optim
 from tqdm import tqdm
@@ -13,6 +14,25 @@ import torch.nn as nn
 class TrainerED(BaseTrainer):
     def build_net(self, cfg):
         self.net = SVG2CADTransformer(cfg).cuda()
+
+        # transfer from deepcad
+        # ckpt_path = 'pretrained/model/ckpt_epoch1000.pth'
+        # if os.path.exists(ckpt_path):
+        #     print(f"Loading pretrained decoder from {ckpt_path}...")
+        #     ckpt = torch.load(ckpt_path, map_location='cpu')
+        #     state_dict = ckpt['model_state_dict'] if 'model_state_dict' in ckpt else ckpt
+            
+        #     # Filter for decoder keys (embedding and transformer decoder only)
+        #     # We exclude 'fcn' because the architecture is different
+        #     # We exclude 'PE' because of size mismatch (60 vs 100)
+        #     decoder_dict = {k: v for k, v in state_dict.items() 
+        #                     if (k.startswith('decoder.embedding.') or k.startswith('decoder.decoder.')) 
+        #                     and 'fcn' not in k and 'PE' not in k}
+            
+        #     missing_keys, unexpected_keys = self.net.load_state_dict(decoder_dict, strict=False)
+        #     print(f"Transferred {len(decoder_dict)} keys for decoder.")
+        # else:
+        #     print(f"Warning: Pretrained checkpoint not found at {ckpt_path}")
 
         # Total number of model parameters
         total_params = sum(p.numel() for p in self.net.parameters())

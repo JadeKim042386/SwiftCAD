@@ -1,2 +1,2 @@
 #!/bin/bash
-nohup python train.py --input_option 4x --exp_name emd_4x_train_balance_weight_2 > train.log 2>&1 &
+nohup python train.py --input_option 4x --exp_name share_decoder_6layer_4x_train > train.log 2>&1 &

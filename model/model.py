@@ -167,6 +167,29 @@ class ArgsDecoder(nn.Module):
 
         return args_logits
 
+class Decoder(nn.Module):
+    def __init__(self, cfg):
+        super(Decoder, self).__init__()
+
+        self.embedding = ConstEmbedding(cfg)
+
+        decoder_layer = TransformerDecoderLayerGlobalImproved(cfg.d_model, cfg.dim_z, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
+        decoder_norm = LayerNorm(cfg.d_model)
+        self.decoder = TransformerDecoder(decoder_layer, cfg.n_layers_decode, decoder_norm)
+
+        self.fcn_cmd = CommandFCN(cfg.d_model, cfg.cad_n_commands)
+        args_dim = cfg.args_dim + 1
+        self.fcn_args = ArgsFCN(cfg.d_model, cfg.cad_n_args, args_dim)
+
+    def forward(self, z):
+        src = self.embedding(z)
+        out = self.decoder(src, z, tgt_mask=None, tgt_key_padding_mask=None)
+
+        command_logits = self.fcn_cmd(out)
+        args_logits = self.fcn_args(out)
+
+        return command_logits, args_logits
+
 class Bottleneck(nn.Module):
     def __init__(self, cfg):
         super(Bottleneck, self).__init__()
@@ -188,8 +211,9 @@ class SVG2CADTransformer(nn.Module):
 
         self.bottleneck = Bottleneck(cfg)
 
-        self.command_decoder = CommandDecoder(cfg)
-        self.args_decoder = ArgsDecoder(cfg)
+        # self.command_decoder = CommandDecoder(cfg)
+        # self.args_decoder = ArgsDecoder(cfg)
+        self.decoder = Decoder(cfg)
 
     def forward(self, views_enc, commands_enc, args_enc):
         views_enc_, commands_enc_, args_enc_ = _make_seq_first(views_enc, commands_enc, args_enc)  # Possibly None, None, None
@@ -198,9 +222,8 @@ class SVG2CADTransformer(nn.Module):
         z = self.bottleneck(z)
         
         """command-guided generation"""
-        command_logits, guidance = self.command_decoder(z)
+        command_logits, args_logits = self.decoder(z)
         command_logits = _make_batch_first(command_logits)
-        args_logits = self.args_decoder(z, guidance)
         args_logits = _make_batch_first(args_logits)
 
         res = {
