@@ -15,4 +15,5 @@ torchvision==0.16.0
 tqdm
 trimesh
 x-clip
+wandb
 

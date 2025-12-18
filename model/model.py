@@ -46,6 +46,44 @@ class SVGEmbedding(nn.Module):
         src = self.pos_encoding(src)
 
         return src
+
+class SVGEmbeddingNoMlp(nn.Module):
+    def __init__(self, cfg, seq_len):
+        super().__init__()
+        # cfg.d_model = 144 설정
+        # cfg.n_heads = 8 유지
+        
+        if cfg.input_option in ["3x", "4x"]:
+            self.view_embed = nn.Embedding(4, 4)
+            self.command_embed = nn.Embedding(cfg.svg_n_commands, 8)
+        
+        if cfg.input_option == "1x":
+            # 1x일 때도 합이 140이 되도록 조정 (예: 12 + 128)
+            self.command_embed = nn.Embedding(cfg.svg_n_commands, 12)
+
+        args_dim = cfg.args_dim + 1
+        self.args_embed = nn.Embedding(args_dim, 64, padding_idx=0)
+        
+        # args_mlp의 출력을 132로 수정 (4 + 8 + 132 = 144)
+        self.args_mlp = nn.Linear(64 * cfg.svg_n_args, 132) 
+        
+        self.pos_encoding = PositionalEncodingLUT(cfg.d_model, max_len=seq_len + 2)
+
+    def forward(self, view, command, args):
+        S, N = command.shape
+        command_embedding = self.command_embed(command.long())
+        
+        # (S, N, 128) 생성
+        args_embedding = self.args_mlp(self.args_embed((args + 1).long()).view(S, N, -1))
+
+        if S == 100: # 1x
+            src = torch.cat([command_embedding, args_embedding], dim=-1) # 8 + 132 = 144
+        else: # 3x or 4x
+            view_embedding = self.view_embed(view.long())
+            src = torch.cat([view_embedding, command_embedding, args_embedding], dim=-1) # 4 + 8 + 132 = 144
+        
+        src = self.pos_encoding(src)
+        return src
     
 class ConstEmbedding(nn.Module):
     """learned constant embedding"""
@@ -67,7 +105,7 @@ class Encoder(nn.Module):
 
         view_num = int(cfg.input_option[0])
         seq_len = view_num * cfg.svg_max_total_len
-        self.embedding = SVGEmbedding(cfg, seq_len)
+        self.embedding = SVGEmbeddingNoMlp(cfg, seq_len)
 
         encoder_layer = TransformerEncoderLayerImproved(cfg.d_model, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
         encoder_norm = LayerNorm(cfg.d_model)
