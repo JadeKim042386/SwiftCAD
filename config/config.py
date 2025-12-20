@@ -52,9 +52,9 @@ class Config(object):
         self.n_layers_decode = 4         # Number of Decoder blocks
         self.n_heads = 8                 # Transformer config: number of heads
         self.dim_feedforward = 512      # Transformer config: FF dimensionality
-        self.d_model = 144               # Transformer config: model dimensionality
+        self.d_model = 160               # Transformer config: model dimensionality
         self.dropout = 0.1               # Dropout rate used in basic layers and Transformers
-        self.dim_z = 144                 # Latent vector dimensionality
+        self.dim_z = 160                 # Latent vector dimensionality
 
         self.cad_max_n_ext = CAD_MAX_N_EXT
         self.cad_max_n_loops = CAD_MAX_N_LOOPS
