@@ -1,5 +1,6 @@
 from tqdm import tqdm
 import os
+import time
 from dataset.bi_sequence_dataset import get_dataloader
 from config.config import Config
 from config.file_utils import ensure_dir
@@ -24,6 +25,7 @@ def main():
     print(f"Total number of test batch: {len(test_loader)}")
 
     # evaluate
+    start_time = time.time()
     for i, data in enumerate(test_loader):
         cad_data = data['cad']
         gt_vec = torch.cat([cad_data['command'].unsqueeze(-1), cad_data['args']], dim=-1).squeeze(1).detach().cpu().numpy()
@@ -48,6 +50,9 @@ def main():
                 f.create_dataset('out_vec', data=out[:seq_len], dtype=np.int32)
                 f.create_dataset('gt_vec', data=gt_vec[j][:seq_len], dtype=np.int32)
             pbar.update(1)
+
+    end_time = time.time()
+    print(f"Total time: {end_time - start_time}")
 
 
 if __name__ == '__main__':

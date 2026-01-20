@@ -65,7 +65,7 @@ class SVGEmbeddingNoMlp(nn.Module):
         self.args_embed = nn.Embedding(args_dim, 64, padding_idx=0)
         
         # args_mlp의 출력을 132로 수정 (4 + 8 + 132 = 144)
-        self.args_mlp = nn.Linear(64 * cfg.svg_n_args, 148) 
+        self.args_mlp = nn.Linear(64 * cfg.svg_n_args, 132) 
         
         self.pos_encoding = PositionalEncodingLUT(cfg.d_model, max_len=seq_len + 2)
 
