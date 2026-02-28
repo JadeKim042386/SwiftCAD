@@ -30,8 +30,8 @@ class NewCADLoss(nn.Module):
         mask = self.cmd_args_mask[tgt_commands.long()]
 
         loss_cmd = F.cross_entropy(command_logits[padding_mask.bool()].reshape(-1, self.n_commands), tgt_commands[padding_mask.bool()].reshape(-1).long())
-        loss_args = F.cross_entropy(args_logits[mask.bool()].reshape(-1, self.args_dim), tgt_args[mask.bool()].reshape(-1).long() + 1)  # shift due to -1 PAD_VAL
-        # loss_args = gumbel_loss(args_logits, tgt_args, mask)
+        # loss_args = F.cross_entropy(args_logits[mask.bool()].reshape(-1, self.args_dim), tgt_args[mask.bool()].reshape(-1).long() + 1)  # shift due to -1 PAD_VAL
+        loss_args = gumbel_loss(args_logits, tgt_args, mask)
 
         # args_logits: (batchsize, 60, 16, 257)
         # tgt_args: (batchsize, 60, 16)

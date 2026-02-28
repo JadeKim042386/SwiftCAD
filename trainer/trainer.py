@@ -1,5 +1,6 @@
 import wandb
 import os
+import math
 import torch
 import torch.optim as optim
 from tqdm import tqdm
@@ -10,6 +11,10 @@ from .scheduler import GradualWarmupScheduler
 from config.macro import *
 import torch.nn as nn
 
+
+def one_cycle(y1=0.0, y2=1.0, steps=100):
+    # lambda function for sinusoidal ramp from y1 to y2 https://arxiv.org/pdf/1812.01187.pdf
+    return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
 
 class TrainerED(BaseTrainer):
     def build_net(self, cfg):
@@ -41,7 +46,10 @@ class TrainerED(BaseTrainer):
     def set_optimizer(self, cfg):
         """set optimizer and lr scheduler used in training"""
         self.optimizer = optim.Adam(self.net.parameters(), cfg.lr)
-        self.scheduler = GradualWarmupScheduler(self.optimizer, 1.0, cfg.warmup_step)
+
+        # self.scheduler = GradualWarmupScheduler(self.optimizer, 1.0, cfg.warmup_step)
+        lf = one_cycle(1, 1e-3, cfg.nr_epochs)
+        self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lf)
 
     def set_loss_function(self):
         self.loss_func = NewCADLoss(self.cfg).cuda()
