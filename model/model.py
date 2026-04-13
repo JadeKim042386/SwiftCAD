@@ -50,39 +50,41 @@ class SVGEmbedding(nn.Module):
 class SVGEmbeddingNoMlp(nn.Module):
     def __init__(self, cfg, seq_len):
         super().__init__()
-        # cfg.d_model = 144 설정
-        # cfg.n_heads = 8 유지
-        
+
         if cfg.input_option in ["3x", "4x"]:
             self.view_embed = nn.Embedding(4, 4)
             self.command_embed = nn.Embedding(cfg.svg_n_commands, 8)
-        
+
         if cfg.input_option == "1x":
-            # 1x일 때도 합이 140이 되도록 조정 (예: 12 + 128)
             self.command_embed = nn.Embedding(cfg.svg_n_commands, 12)
 
         args_dim = cfg.args_dim + 1
         self.args_embed = nn.Embedding(args_dim, 64, padding_idx=0)
-        
-        # args_mlp의 출력을 132로 수정 (4 + 8 + 132 = 144)
-        self.args_mlp = nn.Linear(64 * cfg.svg_n_args, 132) 
-        
-        self.pos_encoding = PositionalEncodingLUT(cfg.d_model, max_len=seq_len + 2)
+        self.args_mlp = nn.Linear(64 * cfg.svg_n_args, 132)  # 4 + 8 + 132 = 144
+
+        # Decomposed PE: intra-view PE (0-99) instead of global PE (0-299)
+        # Each view's tokens share the same positional encoding scheme
+        self.pos_encoding = PositionalEncodingLUT(cfg.d_model, max_len=cfg.svg_max_total_len + 2)
+        self.input_option = cfg.input_option
+        self.tokens_per_view = cfg.svg_max_total_len  # 100
 
     def forward(self, view, command, args):
         S, N = command.shape
         command_embedding = self.command_embed(command.long())
-        
-        # (S, N, 128) 생성
         args_embedding = self.args_mlp(self.args_embed((args + 1).long()).view(S, N, -1))
 
-        if S == 100: # 1x
-            src = torch.cat([command_embedding, args_embedding], dim=-1) # 8 + 132 = 144
-        else: # 3x or 4x
+        if S == self.tokens_per_view:  # 1x
+            src = torch.cat([command_embedding, args_embedding], dim=-1)
+            src = self.pos_encoding(src)
+        else:  # 3x or 4x
             view_embedding = self.view_embed(view.long())
-            src = torch.cat([view_embedding, command_embedding, args_embedding], dim=-1) # 4 + 8 + 132 = 144
-        
-        src = self.pos_encoding(src)
+            src = torch.cat([view_embedding, command_embedding, args_embedding], dim=-1)
+            # Apply intra-view PE: same PE(0-99) repeated for each view
+            num_views = S // self.tokens_per_view
+            src_views = src.view(num_views, self.tokens_per_view, N, -1)  # (V, 100, N, D)
+            for v in range(num_views):
+                src_views[v] = self.pos_encoding(src_views[v])
+            src = src_views.view(S, N, -1)
         return src
     
 class ConstEmbedding(nn.Module):
@@ -103,24 +105,31 @@ class Encoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
-        view_num = int(cfg.input_option[0])
-        seq_len = view_num * cfg.svg_max_total_len
+        self.view_num = int(cfg.input_option[0])
+        seq_len = self.view_num * cfg.svg_max_total_len
         self.embedding = SVGEmbeddingNoMlp(cfg, seq_len)
 
-        encoder_layer = TransformerEncoderLayerImproved(cfg.d_model, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
+        # Alternating attention encoder: frame-wise + global layers
+        frame_layers = [
+            TransformerEncoderLayerImproved(cfg.d_model, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
+            for _ in range(cfg.n_layers)
+        ]
+        global_layers = [
+            TransformerEncoderLayerImproved(cfg.d_model, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
+            for _ in range(cfg.n_layers)
+        ]
         encoder_norm = LayerNorm(cfg.d_model)
-        self.encoder = TransformerEncoder(encoder_layer, cfg.n_layers, encoder_norm)
-    
+        self.encoder = AlternatingTransformerEncoder(frame_layers, global_layers, encoder_norm)
+
     def forward(self, view, command, args):
         assert command.shape == view.shape
         padding_mask, key_padding_mask = _get_padding_mask_svg(command, seq_dim=0), _get_key_padding_mask_svg(command, seq_dim=0)
-    
+
         src = self.embedding(view, command, args)
 
-        memory = self.encoder(src, mask=None, src_key_padding_mask=key_padding_mask)
+        memory = self.encoder(src, num_views=self.view_num, src_key_padding_mask=key_padding_mask)
 
-        z = (memory * padding_mask).sum(dim=0, keepdim=True) / padding_mask.sum(dim=0, keepdim=True) # (1, N, dim_z)
-        return z
+        return memory, key_padding_mask
 
 class CommandFCN(nn.Module):
     def __init__(self, d_model, n_commands):
@@ -211,7 +220,7 @@ class Decoder(nn.Module):
 
         self.embedding = ConstEmbedding(cfg)
 
-        decoder_layer = TransformerDecoderLayerGlobalImproved(cfg.d_model, cfg.dim_z, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
+        decoder_layer = TransformerDecoderLayerImproved(cfg.d_model, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
         decoder_norm = LayerNorm(cfg.d_model)
         self.decoder = TransformerDecoder(decoder_layer, cfg.n_layers_decode, decoder_norm)
 
@@ -219,9 +228,10 @@ class Decoder(nn.Module):
         args_dim = cfg.args_dim + 1
         self.fcn_args = ArgsFCN(cfg.d_model, cfg.cad_n_args, args_dim)
 
-    def forward(self, z):
-        src = self.embedding(z)
-        out = self.decoder(src, z, tgt_mask=None, tgt_key_padding_mask=None)
+    def forward(self, memory, memory_key_padding_mask=None):
+        src = self.embedding(memory)
+        out = self.decoder(src, memory, tgt_mask=None, tgt_key_padding_mask=None,
+                           memory_key_padding_mask=memory_key_padding_mask)
 
         command_logits = self.fcn_cmd(out)
         args_logits = self.fcn_args(out)
@@ -247,20 +257,14 @@ class SVG2CADTransformer(nn.Module):
 
         self.encoder = Encoder(cfg)
 
-        self.bottleneck = Bottleneck(cfg)
-
-        # self.command_decoder = CommandDecoder(cfg)
-        # self.args_decoder = ArgsDecoder(cfg)
         self.decoder = Decoder(cfg)
 
     def forward(self, views_enc, commands_enc, args_enc):
-        views_enc_, commands_enc_, args_enc_ = _make_seq_first(views_enc, commands_enc, args_enc)  # Possibly None, None, None
+        views_enc_, commands_enc_, args_enc_ = _make_seq_first(views_enc, commands_enc, args_enc)
 
-        z = self.encoder(views_enc_, commands_enc_, args_enc_)
-        z = self.bottleneck(z)
-        
-        """command-guided generation"""
-        command_logits, args_logits = self.decoder(z)
+        memory, enc_key_padding_mask = self.encoder(views_enc_, commands_enc_, args_enc_)
+
+        command_logits, args_logits = self.decoder(memory, enc_key_padding_mask)
         command_logits = _make_batch_first(command_logits)
         args_logits = _make_batch_first(args_logits)
 

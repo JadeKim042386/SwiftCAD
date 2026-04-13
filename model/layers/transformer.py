@@ -380,6 +380,61 @@ class TransformerDecoderLayer(Module):
         return tgt
 
 
+class AlternatingTransformerEncoder(Module):
+    """Encoder with alternating frame-wise and global attention layers (VGGT-style).
+
+    Frame-wise layers: self-attention within each view independently.
+    Global layers: self-attention across all views jointly.
+    """
+
+    def __init__(self, frame_layers, global_layers, norm=None):
+        super(AlternatingTransformerEncoder, self).__init__()
+        assert len(frame_layers) == len(global_layers), \
+            "Must have equal number of frame-wise and global layers"
+        self.frame_layers = ModuleList(frame_layers)
+        self.global_layers = ModuleList(global_layers)
+        self.num_blocks = len(frame_layers)
+        self.norm = norm
+
+    def forward(self, src, num_views=3, mask=None, src_key_padding_mask=None):
+        """
+        Args:
+            src: (S, N, D) where S = num_views * tokens_per_view
+            num_views: number of views (3 or 4)
+            mask: unused (for interface compat)
+            src_key_padding_mask: (N, S) boolean mask, True=ignore
+        """
+        S, N, D = src.shape
+        tokens_per_view = S // num_views
+        output = src
+
+        for frame_layer, global_layer in zip(self.frame_layers, self.global_layers):
+            # --- Frame-wise attention: each view attends to itself ---
+            # Reshape: (S, N, D) → (tokens_per_view, num_views*N, D)
+            x = output.view(num_views, tokens_per_view, N, D)
+            x = x.permute(1, 0, 2, 3).reshape(tokens_per_view, num_views * N, D)
+
+            # Reshape mask: (N, S) → (num_views*N, tokens_per_view)
+            frame_mask = None
+            if src_key_padding_mask is not None:
+                frame_mask = src_key_padding_mask.view(N, num_views, tokens_per_view)
+                frame_mask = frame_mask.permute(1, 0, 2).reshape(num_views * N, tokens_per_view)
+
+            x = frame_layer(x, src_key_padding_mask=frame_mask)
+
+            # Restore: (tokens_per_view, num_views*N, D) → (S, N, D)
+            output = x.reshape(tokens_per_view, num_views, N, D)
+            output = output.permute(1, 0, 2, 3).reshape(S, N, D)
+
+            # --- Global attention: all views attend to each other ---
+            output = global_layer(output, src_key_padding_mask=src_key_padding_mask)
+
+        if self.norm is not None:
+            output = self.norm(output)
+
+        return output
+
+
 def _get_clones(module, N):
     return ModuleList([copy.deepcopy(module) for i in range(N)])
 
