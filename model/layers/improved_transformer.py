@@ -9,7 +9,7 @@ from torch.nn.modules.dropout import Dropout
 from torch.nn.modules.linear import Linear
 from torch.nn.modules.normalization import LayerNorm
 
-from .attention import MultiheadAttention
+from torch.nn import MultiheadAttention
 from .transformer import _get_activation_fn
 
 
@@ -41,7 +41,7 @@ class TransformerEncoderLayerImproved(Module):
 
     def forward(self, src, memory2=None, src_mask=None, src_key_padding_mask=None):
         src1 = self.norm1(src)
-        src2 = self.self_attn(src1, src1, src1, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]
+        src2 = self.self_attn(src1, src1, src1, attn_mask=src_mask, key_padding_mask=src_key_padding_mask, need_weights=False)[0]
         src = src + self.dropout1(src2)
 
         if memory2 is not None:
@@ -81,11 +81,11 @@ class TransformerDecoderLayerImproved(Module):
     def forward(self, tgt, memory, tgt_mask=None, memory_mask=None,
                 tgt_key_padding_mask=None, memory_key_padding_mask=None):
         tgt1 = self.norm1(tgt)
-        tgt2 = self.self_attn(tgt1, tgt1, tgt1, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask)[0]
+        tgt2 = self.self_attn(tgt1, tgt1, tgt1, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask, need_weights=False)[0]
         tgt = tgt + self.dropout1(tgt2)
 
         tgt1 = self.norm2(tgt)
-        tgt2 = self.multihead_attn(tgt1, memory, memory, attn_mask=memory_mask, key_padding_mask=memory_key_padding_mask)[0]
+        tgt2 = self.multihead_attn(tgt1, memory, memory, attn_mask=memory_mask, key_padding_mask=memory_key_padding_mask, need_weights=False)[0]
         tgt = tgt + self.dropout2(tgt2)
 
         tgt1 = self.norm3(tgt)
@@ -124,7 +124,7 @@ class TransformerDecoderLayerGlobalImproved(Module):
 
     def forward(self, tgt, memory, memory2=None, tgt_mask=None, tgt_key_padding_mask=None, *args, **kwargs):
         tgt1 = self.norm1(tgt)
-        tgt2 = self.self_attn(tgt1, tgt1, tgt1, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask)[0]
+        tgt2 = self.self_attn(tgt1, tgt1, tgt1, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask, need_weights=False)[0]
         tgt = tgt + self.dropout1(tgt2)
 
         tgt2 = self.linear_global(memory)
