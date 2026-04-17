@@ -342,7 +342,69 @@ Variant (a)는 논문 원본 대비 Cmd Acc -0.79%, Avg Args -0.58% 하락했다
 
 ---
 
-## 8. 결론
+## 8. Phase 3: 추론 최적화
+
+**환경**: PyTorch 2.7.0 (CUDA 12.8), NVIDIA A100-SXM4-80GB  
+**대상 모델**: Variant (e) Alt+Cross
+
+### 8.1 Graph Break 분석
+
+torch.compile 적용 전 forward path의 graph break 요인을 분석하였다.
+
+| 파일 | 패턴 | 심각도 | 상태 |
+|------|------|--------|------|
+| `functional.py:90,94` | `torch.equal(query, key)` | CRITICAL | 미사용 (nn.MHA 전환 완료) |
+| `model.py:83` | `if S == self.tokens_per_view` | HIGH | input_option=4x 고정 시 S=400 상수 |
+| `model.py:91-93` | `for v in range(num_views)` 루프 | HIGH | 4x 고정 시 4회 고정 루프 |
+| `trainer.py:80,107` | `.cpu().numpy()` | MEDIUM | forward path 외부 (평가/후처리) |
+
+**결론**: `input_option=4x`로 고정 시 forward path에 실질적 graph break 없음. `torch.compile`이 정상 trace 가능.
+
+### 8.2 추론 벤치마크 (batch_size=1)
+
+| 설정 | Latency (ms) | Speedup (vs 자체 base) | vs (a) Baseline FP32 |
+|------|:-----------:|:-----:|:----:|
+| **(a) Baseline FP32 (no compile)** | 3.925 | — | 1.00x |
+| (e) FP32 (no compile) | 6.876 | — | 0.57x |
+| (e) FP16 autocast only | 9.344 | 0.74x | 0.42x |
+| (e) torch.compile (default) FP32 | 3.475 | 1.99x | 1.13x |
+| (e) torch.compile (reduce-overhead) FP32 | 1.569 | 4.41x | 2.50x |
+| (e) torch.compile (default) + FP16 | 4.301 | 1.61x | 0.91x |
+| **(e) torch.compile (reduce-overhead) + FP16** | **1.251** | **5.19x** | **3.14x** |
+
+### 8.3 배치 크기별 성능
+
+| Batch | 설정 | Latency | Throughput | Speedup |
+|:-----:|------|:-------:|:----------:|:-------:|
+| 1 | (e) Baseline FP32 | 6.876ms | 145/s | 1.00x |
+| 1 | (e) compile+FP16 | 1.251ms | 799/s | **5.50x** |
+| 16 | (e) Baseline FP32 | 7.240ms | 2,210/s | 1.00x |
+| 16 | (e) compile+FP16 | 2.897ms | 5,523/s | **2.50x** |
+| 256 | (e) Baseline FP32 | 60.446ms | 4,235/s | 1.00x |
+| 256 | (e) compile+FP16 | 29.713ms | 8,616/s | **2.03x** |
+
+- `reduce-overhead` 모드는 batch=1에서 CUDA Graph로 kernel launch overhead를 완전히 제거하여 **5.19x** 가속
+- batch=256에서는 compute-bound이므로 CUDA Graph 효과 감소, FP16이 주 가속 요인 (**2.03x**)
+- FP16 단독(autocast only)은 오히려 느려짐 — kernel launch overhead가 지배적인 소규모 배치에서 dtype 변환 오버헤드가 상쇄
+
+### 8.4 정확도 보존 검증
+
+| 비교 대상 | command_logits max diff | args_logits max diff | Cmd argmax 일치율 |
+|-----------|:-:|:-:|:-:|
+| compile FP32 vs Baseline FP32 | 0.018 | 0.105 | 99.99% |
+| compile FP16 vs Baseline FP32 | 0.025 | 0.204 | 99.99% |
+
+수치 오차는 FP16 정밀도 범위 내이며, argmax 결과에 실질적 영향 없음.
+
+### 8.5 핵심 발견
+
+1. **추론 비용 문제 완전 해결**: Phase 2에서 (e)는 (a) 대비 +75.7% latency 증가가 있었으나, torch.compile 적용 후 **(a)의 FP32 대비 3.14x 더 빠름**
+2. **FP16 단독은 비효과적**: autocast만 적용하면 오히려 느려짐. compile과 결합해야 효과 발현
+3. **batch=1 최적화가 가장 극적**: overhead-bound 환경에서 CUDA Graph의 효과가 극대화
+
+---
+
+## 9. 결론
 
 1. **Variant (e) Alt+Cross가 최적 모델**. 논문 원본 대비 Avg Args Accuracy를 유일하게 상회(+0.10)하며, Cmd Acc도 거의 동등(+0.02). Baseline(a) 대비 Cmd +0.81, Args +0.68 개선.
 
@@ -356,10 +418,10 @@ Variant (a)는 논문 원본 대비 Cmd Acc -0.79%, Avg Args -0.58% 하락했다
    - 200 epochs, dropout 0.1 등 기존 하이퍼파라미터를 그대로 사용
    - 계획서에 명시된 과적합 대응(dropout 상향, DropPath, data augmentation 등)을 미적용
 
-4. **추론 비용 증가(+75.7%)는 Phase 3(torch.compile)에서 해결 필요**. 현재 A100 batch=1 기준 6.94ms로 실용적이나, 경량 GPU 배포 시 최적화 필수.
+4. **torch.compile로 추론 비용 문제 완전 해결**. (e) + compile(reduce-overhead) + FP16 조합이 (a) Baseline FP32 대비 **3.14x 빠르면서 정확도도 우수**. 성능과 속도 모두에서 Baseline을 상회하는 결과 달성.
 
 ### 다음 단계 권장
 
-- **Phase 3 (torch.compile)**: Variant (e)에 `mode="reduce-overhead"` 적용하여 latency 개선
-- **과적합 완화 실험**: (e) 기반으로 dropout 0.2, DropPath, data augmentation 적용 후 재학습
+- **과적합 완화 실험**: (e) 기반으로 dropout 0.2, DropPath, data augmentation 적용 후 재학습하여 추가 성능 향상 확인
 - **Phase 4 (선택)**: Mask-Predict iterative refinement로 extent 등 저성능 metric 추가 개선
+- **배포 패키징**: torch.compile + FP16 설정을 inference script에 통합
