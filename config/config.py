@@ -23,10 +23,13 @@ class Config(object):
         # experiment paths
         self.exp_dir = os.path.join(self.proj_dir, self.exp_name)
         if phase == "train" and args.cont is not True and os.path.exists(self.exp_dir):
-            response = input('Experiment log/model already exists, overwrite? (y/n) ')
-            if response != 'y':
-                exit()
-            shutil.rmtree(self.exp_dir)
+            if os.environ.get('AUTO_OVERWRITE', '0') == '1':
+                shutil.rmtree(self.exp_dir)
+            else:
+                response = input('Experiment log/model already exists, overwrite? (y/n) ')
+                if response != 'y':
+                    exit()
+                shutil.rmtree(self.exp_dir)
 
         self.log_dir = os.path.join(self.exp_dir, 'log')
         self.model_dir = os.path.join(self.exp_dir, 'model')
@@ -52,9 +55,9 @@ class Config(object):
         self.n_layers_decode = 4         # Number of Decoder blocks
         self.n_heads = 8                 # Transformer config: number of heads
         self.dim_feedforward = 512      # Transformer config: FF dimensionality
-        self.d_model = 144               # Transformer config: model dimensionality
+        self.d_model = 256               # Transformer config: model dimensionality
         self.dropout = 0.1               # Dropout rate used in basic layers and Transformers
-        self.dim_z = 144                 # Latent vector dimensionality
+        self.dim_z = 256                 # Latent vector dimensionality
 
         self.cad_max_n_ext = CAD_MAX_N_EXT
         self.cad_max_n_loops = CAD_MAX_N_LOOPS
@@ -93,6 +96,14 @@ class Config(object):
         parser.add_argument('--vis_frequency', type=int, default=2000, help="visualize output every x iterations")
 
         parser.add_argument('--input_option', type=str, default="3x", help="number of input views (1x, 3x, 4x)")
-        
+
+        # Architecture variant flags
+        parser.add_argument('--encoder_type', type=str, default='alternating', choices=['standard', 'alternating'],
+                            help="Encoder type: 'standard' (4 layers) or 'alternating' (4 frame-wise + 4 global)")
+        parser.add_argument('--decoder_type', type=str, default='cross_attention', choices=['broadcast', 'cross_attention'],
+                            help="Decoder type: 'broadcast' (global z) or 'cross_attention' (full memory)")
+        parser.add_argument('--use_bottleneck', action='store_true', default=False,
+                            help="Apply element-wise bottleneck to encoder memory (only with cross_attention decoder)")
+
         args = parser.parse_args()
         return parser, args

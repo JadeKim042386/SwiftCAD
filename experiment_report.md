@@ -370,3 +370,45 @@ with torch.autocast(device_type='cuda', dtype=torch.float16):
 | (e) + torch.compile | ~89-93% | ~86-91% | **-20~40%** | 속도 회복 |
 
 > 예상치는 정보 병목 해소 효과(20-35% 향상)에 기반한 추정이며, 실제 결과는 학습 dynamics에 따라 달라질 수 있음.
+
+---
+
+## 11. 실험 결과
+
+### 11.1 Variant (a) Baseline — 완료 (2026-04-14)
+
+**학습 설정**: encoder_type=standard, decoder_type=broadcast, input_option=3x, 200 epochs, batch_size=256, lr=1e-3
+**파라미터**: 7,654,330 (29.20 MB, float32)
+**wandb run**: [olive-oath-90](https://wandb.ai/jujoo/Drawing2CAD/runs/8sbd2gms)
+**학습 시간**: 약 11시간 30분 (02:00 ~ 13:30, A100 80GB)
+**체크포인트**: `proj_log/variant_a_baseline/model/` (epoch 100, 200, latest)
+
+#### Training Loss (에폭별 평균)
+
+| Epoch | loss_cmd | loss_args |
+|-------|----------|-----------|
+| 50    | 0.5673   | 3.8272    |
+| 100   | 0.4564   | 3.5545    |
+| 150   | 0.3813   | 3.3838    |
+| 200   | 0.3396   | 3.3034    |
+
+#### Final Metrics (wandb summary, epoch 200)
+
+| Metric | Value |
+|--------|-------|
+| **train/loss_cmd** | 0.3544 |
+| **train/loss_args** | 3.4597 |
+| **validation/loss_cmd** | 1.0828 |
+| **validation/loss_args** | 4.4707 |
+| **args_acc/plane** | 87.99% |
+| **args_acc/circle** | 71.77% |
+| **args_acc/line** | 58.64% |
+| **args_acc/arc** | 51.97% |
+| **args_acc/trans** | 49.99% |
+| **args_acc/extent** | 36.59% |
+| **learning_rate** | 8.854e-4 |
+
+#### 분석
+- Train vs Validation loss 차이가 큼 (cmd: 0.35 vs 1.08, args: 3.46 vs 4.47) → **과적합 경향**
+- Plane accuracy가 가장 높고 (88%), Extent가 가장 낮음 (37%)
+- 이 baseline 결과를 기준으로 variant (b)~(e)의 cross-attention/alternating attention 효과를 비교 예정
