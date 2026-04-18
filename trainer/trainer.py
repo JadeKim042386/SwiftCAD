@@ -20,24 +20,27 @@ class TrainerED(BaseTrainer):
     def build_net(self, cfg):
         self.net = SVG2CADTransformer(cfg).cuda()
 
-        # transfer from deepcad
-        # ckpt_path = 'pretrained/model/ckpt_epoch1000.pth'
-        # if os.path.exists(ckpt_path):
-        #     print(f"Loading pretrained decoder from {ckpt_path}...")
-        #     ckpt = torch.load(ckpt_path, map_location='cpu')
-        #     state_dict = ckpt['model_state_dict'] if 'model_state_dict' in ckpt else ckpt
-            
-        #     # Filter for decoder keys (embedding and transformer decoder only)
-        #     # We exclude 'fcn' because the architecture is different
-        #     # We exclude 'PE' because of size mismatch (60 vs 100)
-        #     decoder_dict = {k: v for k, v in state_dict.items() 
-        #                     if (k.startswith('decoder.embedding.') or k.startswith('decoder.decoder.')) 
-        #                     and 'fcn' not in k and 'PE' not in k}
-            
-        #     missing_keys, unexpected_keys = self.net.load_state_dict(decoder_dict, strict=False)
-        #     print(f"Transferred {len(decoder_dict)} keys for decoder.")
-        # else:
-        #     print(f"Warning: Pretrained checkpoint not found at {ckpt_path}")
+        # Load pretrained checkpoint for mask-predict training
+        use_mp = getattr(cfg, 'use_mask_predict', False)
+        pretrained_path = 'proj_log/variant_e_alt_cross_4x/model/latest.pth'
+        if use_mp and cfg.is_train and os.path.exists(pretrained_path):
+            print(f"Loading pretrained weights from {pretrained_path} for mask-predict...")
+            ckpt = torch.load(pretrained_path, map_location='cuda', weights_only=False)
+            missing, unexpected = self.net.load_state_dict(ckpt['model_state_dict'], strict=False)
+            print(f"  Missing keys (new params): {len(missing)}")
+            print(f"  Unexpected keys: {len(unexpected)}")
+
+        # Freeze pretrained parameters if requested
+        freeze = getattr(cfg, 'freeze_pretrained', False)
+        if freeze and use_mp:
+            new_param_names = {'decoder.embedding.command_embed', 'decoder.embedding.args_embed',
+                               'decoder.embedding.args_proj', 'decoder.embedding.mask_token'}
+            for name, param in self.net.named_parameters():
+                is_new = any(name.startswith(prefix) for prefix in new_param_names)
+                param.requires_grad = is_new
+            trainable = sum(p.numel() for p in self.net.parameters() if p.requires_grad)
+            frozen = sum(p.numel() for p in self.net.parameters() if not p.requires_grad)
+            print(f"Freeze mode: trainable={trainable:,} frozen={frozen:,}")
 
         # Total number of model parameters
         total_params = sum(p.numel() for p in self.net.parameters())
@@ -58,12 +61,63 @@ class TrainerED(BaseTrainer):
     def forward(self, data):
         cad_data = data['cad']
         svg_data = data['svg']
-        svg_view = svg_data['view'].cuda() 
-        svg_command = svg_data['command'].cuda() 
+        svg_view = svg_data['view'].cuda()
+        svg_command = svg_data['command'].cuda()
         svg_args = svg_data['args'].cuda()
-        outputs = self.net(svg_view, svg_command, svg_args)
 
+        use_mp = getattr(self.cfg, 'use_mask_predict', False)
+
+        if use_mp and self.net.training:
+            return self._forward_mask_predict(svg_view, svg_command, svg_args, cad_data)
+
+        outputs = self.net(svg_view, svg_command, svg_args)
         loss_dict = self.loss_func(outputs, cad_data)
+        return outputs, loss_dict
+
+    def _forward_mask_predict(self, svg_view, svg_command, svg_args, cad_data):
+        """Mask-Predict training: initial pass + one refinement pass with random masking."""
+        # Initial pass (no refinement)
+        outputs = self.net(svg_view, svg_command, svg_args)
+        loss_dict_init = self.loss_func(outputs, cad_data)
+
+        # Build refinement input from GT with random masking
+        tgt_commands = cad_data['command'].cuda()  # (N, S)
+        tgt_args = cad_data['args'].cuda()  # (N, S, n_args)
+        N, S = tgt_commands.shape
+
+        # Random mask ratio per sample
+        mask_ratio = torch.empty(N, 1, device=tgt_commands.device).uniform_(0.15, 0.85)
+        rand_scores = torch.rand(N, S, device=tgt_commands.device)
+        refinement_mask = rand_scores < mask_ratio  # True = masked
+
+        # Convert to seq-first for decoder
+        prev_cmd_T = tgt_commands.transpose(0, 1)  # (S, N)
+        prev_args_T = tgt_args.permute(1, 0, 2)  # (S, N, n_args)
+        mask_T = refinement_mask.transpose(0, 1)  # (S, N)
+
+        # Encoder (reuse)
+        from model.model_utils import _make_seq_first, _make_batch_first
+        views_enc_, commands_enc_, args_enc_ = _make_seq_first(svg_view, svg_command, svg_args)
+        memory_or_z, enc_key_padding_mask = self.net.encoder(views_enc_, commands_enc_, args_enc_)
+        if self.net.use_bottleneck and self.net.decoder_type == 'cross_attention':
+            memory_or_z = self.net.bottleneck(memory_or_z)
+
+        # Refinement pass
+        cmd_logits_ref, args_logits_ref = self.net.decoder(
+            memory_or_z, enc_key_padding_mask,
+            prev_cmd=prev_cmd_T, prev_args=prev_args_T, mask_positions=mask_T
+        )
+        cmd_logits_ref = _make_batch_first(cmd_logits_ref)
+        args_logits_ref = _make_batch_first(args_logits_ref)
+        outputs_ref = {"command_logits": cmd_logits_ref, "args_logits": args_logits_ref}
+
+        loss_dict_ref = self.loss_func(outputs_ref, cad_data, refinement_mask=refinement_mask)
+
+        # Combine losses: initial + refinement
+        loss_dict = {
+            "loss_cmd": loss_dict_init["loss_cmd"] + loss_dict_ref["loss_cmd"],
+            "loss_args": loss_dict_init["loss_args"] + loss_dict_ref["loss_args"],
+        }
 
         return outputs, loss_dict
     

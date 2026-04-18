@@ -217,4 +217,6 @@ pyrightconfig.json
 **/proj_log/
 **/wandb/
 **.svg
+deepcad_ref/
+train_logs/
 **.tar

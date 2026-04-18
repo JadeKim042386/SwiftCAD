@@ -33,7 +33,18 @@ def main():
         batch_size = cad_data['command'].shape[0]
 
         with torch.no_grad():
-            outputs, _ = tr_agent.forward(data)
+            svg_data = data['svg']
+            sv = svg_data['view'].cuda()
+            sc = svg_data['command'].cuda()
+            sa = svg_data['args'].cuda()
+
+            n_steps = getattr(cfg, 'n_refinement_steps', 0)
+            mask_ratios_str = getattr(cfg, 'mask_ratios', '0.5,0.3')
+            mask_schedule = [float(x) for x in mask_ratios_str.split(',')][:n_steps] if n_steps > 0 else None
+
+            outputs = tr_agent.net(sv, sc, sa,
+                                   n_refinement_steps=n_steps,
+                                   mask_ratio_schedule=mask_schedule)
             batch_outputs = tr_agent.logits2vec(outputs)
 
         pbar = tqdm(total=batch_size, desc='BATCH[{}]'.format(i))

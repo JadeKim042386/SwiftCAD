@@ -112,6 +112,45 @@ class ConstEmbedding(nn.Module):
         src = self.PE(z.new_zeros(self.seq_len, N, self.d_model))
         return src
 
+
+class PartialPredictionEmbedding(nn.Module):
+    """Embedding for Mask-Predict: initial pass = ConstEmbedding, refinement = prev prediction + mask token"""
+    def __init__(self, cfg):
+        super().__init__()
+
+        self.d_model = cfg.d_model
+        self.seq_len = cfg.cad_max_total_len
+        self.PE = PositionalEncodingLUT(cfg.d_model, max_len=cfg.cad_max_total_len)
+
+        # Embed previous predictions
+        self.command_embed = nn.Embedding(cfg.cad_n_commands, cfg.d_model // 2)
+        self.args_embed = nn.Embedding(cfg.args_dim + 2, 8)  # +2 for PAD(-1→0) shift and safety
+        self.args_proj = nn.Linear(cfg.cad_n_args * 8, cfg.d_model // 2)
+
+        # Learnable [MASK] token
+        self.mask_token = nn.Parameter(torch.randn(1, 1, cfg.d_model) * 0.02)
+
+    def forward(self, z_or_memory, prev_cmd=None, prev_args=None, mask_positions=None):
+        if prev_cmd is None:
+            # Initial pass: same as ConstEmbedding
+            N = z_or_memory.size(1)
+            src = self.PE(z_or_memory.new_zeros(self.seq_len, N, self.d_model))
+            return src
+
+        # Refinement pass: embed previous predictions
+        S, N = prev_cmd.shape
+        cmd_emb = self.command_embed(prev_cmd.long())  # (S, N, d_model/2)
+        args_shifted = (prev_args + 1).clamp(min=0).long()  # shift -1→0
+        args_emb = self.args_embed(args_shifted)  # (S, N, n_args, 8)
+        args_emb = self.args_proj(args_emb.reshape(S, N, -1))  # (S, N, d_model/2)
+        pred_emb = torch.cat([cmd_emb, args_emb], dim=-1)  # (S, N, d_model)
+        pred_emb = self.PE(pred_emb)
+
+        # Replace masked positions with learnable mask token
+        mask_expanded = mask_positions.unsqueeze(-1)  # (S, N, 1)
+        src = torch.where(mask_expanded, self.mask_token.expand_as(pred_emb), pred_emb)
+        return src
+
 class Encoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
@@ -249,7 +288,12 @@ class Decoder(nn.Module):
     def __init__(self, cfg):
         super(Decoder, self).__init__()
 
-        self.embedding = ConstEmbedding(cfg)
+        use_mask_predict = getattr(cfg, 'use_mask_predict', False)
+        if use_mask_predict:
+            self.embedding = PartialPredictionEmbedding(cfg)
+        else:
+            self.embedding = ConstEmbedding(cfg)
+        self.use_mask_predict = use_mask_predict
 
         decoder_layer = TransformerDecoderLayerImproved(cfg.d_model, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
         decoder_norm = LayerNorm(cfg.d_model)
@@ -259,8 +303,12 @@ class Decoder(nn.Module):
         args_dim = cfg.args_dim + 1
         self.fcn_args = ArgsFCN(cfg.d_model, cfg.cad_n_args, args_dim)
 
-    def forward(self, memory, memory_key_padding_mask=None):
-        src = self.embedding(memory)
+    def forward(self, memory, memory_key_padding_mask=None,
+                prev_cmd=None, prev_args=None, mask_positions=None):
+        if self.use_mask_predict:
+            src = self.embedding(memory, prev_cmd, prev_args, mask_positions)
+        else:
+            src = self.embedding(memory)
         out = self.decoder(src, memory, tgt_mask=None, tgt_key_padding_mask=None,
                            memory_key_padding_mask=memory_key_padding_mask)
 
@@ -312,6 +360,7 @@ class SVG2CADTransformer(nn.Module):
         self.args_dim = cfg.args_dim + 1
         self.decoder_type = getattr(cfg, 'decoder_type', 'cross_attention')
         self.use_bottleneck = getattr(cfg, 'use_bottleneck', False)
+        self.use_mask_predict = getattr(cfg, 'use_mask_predict', False)
 
         self.encoder = Encoder(cfg)
 
@@ -323,7 +372,8 @@ class SVG2CADTransformer(nn.Module):
         if self.use_bottleneck and self.decoder_type == 'cross_attention':
             self.bottleneck = Bottleneck(cfg)
 
-    def forward(self, views_enc, commands_enc, args_enc):
+    def forward(self, views_enc, commands_enc, args_enc,
+                n_refinement_steps=0, mask_ratio_schedule=None):
         views_enc_, commands_enc_, args_enc_ = _make_seq_first(views_enc, commands_enc, args_enc)
 
         memory_or_z, enc_key_padding_mask = self.encoder(views_enc_, commands_enc_, args_enc_)
@@ -331,9 +381,42 @@ class SVG2CADTransformer(nn.Module):
         if self.use_bottleneck and self.decoder_type == 'cross_attention':
             memory_or_z = self.bottleneck(memory_or_z)
 
+        # Initial prediction (same as before)
         command_logits, args_logits = self.decoder(memory_or_z, enc_key_padding_mask)
         command_logits = _make_batch_first(command_logits)
         args_logits = _make_batch_first(args_logits)
+
+        if n_refinement_steps > 0 and self.use_mask_predict:
+            if mask_ratio_schedule is None:
+                mask_ratio_schedule = [0.5] * n_refinement_steps
+
+            for step in range(n_refinement_steps):
+                # Extract discrete predictions from logits (batch-first)
+                prev_cmd = torch.argmax(command_logits, dim=-1)  # (N, S)
+                prev_args = torch.argmax(args_logits, dim=-1) - 1  # (N, S, n_args)
+
+                # Confidence-based masking on command logits
+                cmd_probs = torch.softmax(command_logits, dim=-1)
+                cmd_confidence = torch.max(cmd_probs, dim=-1).values  # (N, S)
+
+                S = cmd_confidence.size(1)
+                mask_ratio = mask_ratio_schedule[step]
+                k = max(1, int(S * mask_ratio))
+                _, low_conf_idx = torch.topk(cmd_confidence, k, dim=-1, largest=False)
+                mask_positions = torch.zeros_like(prev_cmd, dtype=torch.bool)
+                mask_positions.scatter_(1, low_conf_idx, True)
+
+                # Convert to seq-first for decoder: (N, S, ...) → (S, N, ...)
+                prev_cmd_T = prev_cmd.transpose(0, 1)  # (S, N)
+                prev_args_T = prev_args.permute(1, 0, 2)  # (S, N, n_args)
+                mask_T = mask_positions.transpose(0, 1)  # (S, N)
+
+                command_logits, args_logits = self.decoder(
+                    memory_or_z, enc_key_padding_mask,
+                    prev_cmd=prev_cmd_T, prev_args=prev_args_T, mask_positions=mask_T
+                )
+                command_logits = _make_batch_first(command_logits)
+                args_logits = _make_batch_first(args_logits)
 
         res = {
             "command_logits": command_logits,

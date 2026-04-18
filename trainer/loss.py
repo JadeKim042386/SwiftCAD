@@ -15,7 +15,7 @@ class NewCADLoss(nn.Module):
 
         self.register_buffer("cmd_args_mask", torch.tensor(CAD_CMD_ARGS_MASK))
 
-    def forward(self, outputs, cad_data):
+    def forward(self, outputs, cad_data, refinement_mask=None):
         # Target
         tgt_commands = cad_data["command"].cuda()
         tgt_args = cad_data["args"].cuda()
@@ -23,25 +23,21 @@ class NewCADLoss(nn.Module):
         visibility_mask = _get_visibility_mask(tgt_commands, seq_dim=-1)
         padding_mask = _get_padding_mask_cad(tgt_commands, seq_dim=-1, extended=True) * visibility_mask.unsqueeze(-1)
 
+        # If refinement_mask provided, only compute loss on masked positions
+        if refinement_mask is not None:
+            # refinement_mask: (N, S), True = masked (should compute loss)
+            padding_mask = padding_mask * refinement_mask.float()
+
         # Prediction
         command_logits = outputs["command_logits"]
         args_logits = outputs["args_logits"]
 
         mask = self.cmd_args_mask[tgt_commands.long()]
+        if refinement_mask is not None:
+            mask = mask * refinement_mask.unsqueeze(-1).float()  # (N,S,1) * (N,S,n_args)
 
         loss_cmd = F.cross_entropy(command_logits[padding_mask.bool()].reshape(-1, self.n_commands), tgt_commands[padding_mask.bool()].reshape(-1).long())
-        # loss_args = F.cross_entropy(args_logits[mask.bool()].reshape(-1, self.args_dim), tgt_args[mask.bool()].reshape(-1).long() + 1)  # shift due to -1 PAD_VAL
         loss_args = gumbel_loss(args_logits, tgt_args, mask)
-
-        # args_logits: (batchsize, 60, 16, 257)
-        # tgt_args: (batchsize, 60, 16)
-        # mask: (batchsize, 60, 16)
-        # loss_args = squared_emd_loss(
-        #     logits=args_logits, 
-        #     labels=tgt_args + 1, 
-        #     num_classes=args_logits.shape[-1], 
-        #     mask=mask
-        # )
 
         loss_cmd = self.weights["loss_cmd_weight"] * loss_cmd
         loss_args = self.weights["loss_args_weight"] * loss_args

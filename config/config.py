@@ -105,5 +105,15 @@ class Config(object):
         parser.add_argument('--use_bottleneck', action='store_true', default=False,
                             help="Apply element-wise bottleneck to encoder memory (only with cross_attention decoder)")
 
+        # Mask-Predict refinement
+        parser.add_argument('--use_mask_predict', action='store_true', default=False,
+                            help="Enable Mask-Predict iterative refinement in decoder")
+        parser.add_argument('--n_refinement_steps', type=int, default=0,
+                            help="Number of refinement steps during inference (0=single pass)")
+        parser.add_argument('--mask_ratios', type=str, default='0.5,0.3',
+                            help="Comma-separated mask ratios per refinement step")
+        parser.add_argument('--freeze_pretrained', action='store_true', default=False,
+                            help="Freeze pretrained parameters, only train new mask-predict layers")
+
         args = parser.parse_args()
         return parser, args
