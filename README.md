@@ -1,40 +1,40 @@
 <div align="center">
 
-# Drawing2CAD: Sequence-to-Sequence Learning for CAD Generation from Vector Drawings
+# SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers
 
 <h4>
-  <a href='https://scholar.google.com/citations?user=2Y06Jo4AAAAJ&hl=zh-CN' target='_blank'>Feiwei Qin</a><sup>1*</sup>
+  Juyoung Kim<sup>1*</sup>
   ·
-  <a href='' target='_blank'>Shichao Lu</a><sup>1*</sup>
+  Seongjun Choi<sup>2*</sup>
   ·
-  <a href='https://scholar.google.com/citations?user=IZbQymsAAAAJ&hl' target='_blank'>Junhao Hou</a><sup>2*</sup>
+  Jiyeon Lim<sup>3</sup>
   ·
-  <a href='https://scholar.google.com/citations?user=47KhMXEAAAAJ&hl' target='_blank'>Changmiao Wang</a><sup>3</sup>
+  Wongi Park<sup>4</sup>
   ·
-  <a href='https://scholar.google.com/citations?user=Se20XL0AAAAJ&hl' target='_blank'>Meie Fang</a><sup>4†</sup>
-  ·
-  <a href='https://scholar.google.com/citations?user=1U9U_cYAAAAJ&hl' target='_blank'>Ligang Liu</a><sup>5†</sup>
+  Soomok Lee<sup>5</sup>
 </h4>
 
 <h5>
-  <sup>1</sup>Hangzhou Dianzi University  <sup>2</sup>Zhejiang University  <sup>3</sup>Shenzhen Research Institute of Big Data  <br><sup>4</sup>Guangzhou University  <sup>5</sup>University of Science and Technology of China
+  <sup>1</sup>Metacle  <sup>2</sup>Yonsei University  <sup>3</sup>Samsung Electronics  <br><sup>4</sup>Ajou University  <sup>5</sup>Kennesaw State University
 </h5>
 
 <h4>
-  ACM Multimedia 2025
+  CVPR 2026 Workshop 3D4S
 </h4>
 
 <h5>
-  *These authors contributed equally to this work.
+  *Equal contribution.
 </h5>
 
-[![arXiv](https://img.shields.io/badge/arXiv-Drawing2CAD-b31b1b?logo=arxiv&logoColor=b31b1b)](https://arxiv.org/abs/2508.18733)
-[![Conference](https://img.shields.io/badge/ACM%20MM-2025-4b44ce)]()
+[![Conference](https://img.shields.io/badge/CVPRW-2026-4b44ce)]()
+[![Project Page](https://img.shields.io/badge/Project-Page-1f8a3e?logo=github&logoColor=white)](https://jadekim042386.github.io/SwiftCAD/)
 [![Google Drive](https://img.shields.io/badge/Drive-Dataset-4285F4?logo=googledrive&logoColor=fff)](https://drive.google.com/drive/folders/1t9uO2iFh1eVDXRCKUEonKPBu8WGYA8wU?usp=sharing)
 
-<img src="assets/teaser.png">
-
 </div>
+
+![SwiftCAD teaser](assets/figure_1.png)
+
+SwiftCAD is a streamlined Transformer architecture for parametric CAD generation from vector engineering drawings, building on the SVG-based pipeline of Drawing2CAD. By removing redundant MLP layers in the embedding stage and unifying command and parameter prediction into a single weight-shared decoder with task-specific heads, SwiftCAD achieves a **64.74% reduction in parameters** (from 10.1M to 3.6M) and faster inference, while maintaining accuracy within 0.5% (command) and 0.9% (parameter) of the Drawing2CAD baseline on the CAD-VGDrawing benchmark.
 
 ## 🐍 Installation
 
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 ## 📥 Dataset
 
-Download data from [here](https://drive.google.com/drive/folders/1t9uO2iFh1eVDXRCKUEonKPBu8WGYA8wU?usp=sharing) and extract them under `data` folder.
+We use the **CAD-VGDrawing** dataset from Drawing2CAD. Download data from [here](https://drive.google.com/drive/folders/1t9uO2iFh1eVDXRCKUEonKPBu8WGYA8wU?usp=sharing) and extract them under the `data` folder.
 
 - `svg_raw` contains the engineering drawings of each CAD model in SVG format, including four views: `Front`, `Top`, `Right`, and `FrontTopRight`. Each SVG file has been preprocessed through path simplification and deduplication, path reordering, and viewbox normalization. To obtain engineering drawings in PNG format, you can simply convert them using [CairoSVG](https://cairosvg.org/) with a single line of code:
 
@@ -61,45 +61,98 @@ Download data from [here](https://drive.google.com/drive/folders/1t9uO2iFh1eVDXR
 
 - `svg_vec` contains vectorized representations of SVG drawing sequences. Each file stores the stacked drawing sequences for the four views (`Front`, `Top`, `Right`, and `FrontTopRight`), saved in `.npy` format to enable fast data loading.
 
-- `cad_vec` contains our vectorized representation for CAD sequences, saved in `.h5` format to enable fast data loading.
+- `cad_vec` contains the vectorized representation for CAD sequences, saved in `.h5` format to enable fast data loading.
 
 ## 🚀 Training
 
-To train the model in different input options:
+The main SwiftCAD configuration (Shared Decoder + no MLP embedding, `d_model=144`) can be trained with:
 
 ```bash
-python train.py --input_option {1x, 3x, 4x} --exp_name your_exp_name
+python train.py --input_option 4x --d_model 144 --exp_name swiftcad_main
 ```
 
-Since different input options lead to different models, it is recommended to specify the experiment name using `--exp_name` for each run. For more configurable parameters and options, please refer to `config/config.py`.
+To reproduce all five rows of Table 2, use the following commands. The relevant flags are:
+
+- `--use_shared_decoder` (default: on) — shared decoder architecture (paper main). Pass `--no-use_shared_decoder` to use the dual-decoder baseline.
+- `--use_mlp_embedding` (default: off) — pass to enable the legacy MLP embedding layer (Drawing2CAD baseline).
+- `--d_model` (default: `144`, choices: `144` / `192` / `256`) — Transformer embedding dimension.
+
+```bash
+# (1) Baseline (Drawing2CAD): dual decoder + MLP embedding
+python train.py --input_option 4x --no-use_shared_decoder --use_mlp_embedding --d_model 256 --exp_name baseline
+
+# (2) Shared Decoder only (with MLP embedding)
+python train.py --input_option 4x --use_mlp_embedding --d_model 256 --exp_name shared_decoder
+
+# (3) Shared + w/o MLP, d_model = 144  (main config)
+python train.py --input_option 4x --d_model 144 --exp_name shared_nomlp_144
+
+# (4) Shared + w/o MLP, d_model = 192
+python train.py --input_option 4x --d_model 192 --exp_name shared_nomlp_192
+
+# (5) Shared + w/o MLP, d_model = 256
+python train.py --input_option 4x --d_model 256 --exp_name shared_nomlp_256
+```
+
+Since different configurations produce different model checkpoints, it is recommended to specify a unique `--exp_name` for each run. For more configurable parameters, please refer to `config/config.py`.
 
 ## 📍 Evaluation
 
-After training the model, run the model to inference all test data:
+After training, run inference on all test data with the corresponding configuration. Make sure the inference flags match the training flags.
 
-```python
-python test.py --input_option {1x, 3x, 4x} --exp_name your_exp_name
+```bash
+# (1) Baseline (Drawing2CAD)
+python test.py --input_option 4x --no-use_shared_decoder --use_mlp_embedding --d_model 256 --exp_name baseline
+
+# (2) Shared Decoder only
+python test.py --input_option 4x --use_mlp_embedding --d_model 256 --exp_name shared_decoder
+
+# (3) Shared + w/o MLP, d_model = 144  (main config)
+python test.py --input_option 4x --d_model 144 --exp_name shared_nomlp_144
+
+# (4) Shared + w/o MLP, d_model = 192
+python test.py --input_option 4x --d_model 192 --exp_name shared_nomlp_192
+
+# (5) Shared + w/o MLP, d_model = 256
+python test.py --input_option 4x --d_model 256 --exp_name shared_nomlp_256
 ```
 
 After inference, the final results will be saved under `proj/your_exp_name/test_results`. To evaluate the model inference results and to export and visualize the final CAD models, please refer to the code from [DeepCAD](https://github.com/ChrisWu1997/DeepCAD).
+
+## 📊 Results
+
+Quantitative comparison on CAD-VGDrawing (Table 2 of the paper). All entries use the `4x` input option.
+
+| Method | Parameters | File Size (MB) | Inf. Time (s) | ACC<sub>cmd</sub> | ACC<sub>param</sub> |
+|---|---:|---:|---:|---:|---:|
+| Baseline (Drawing2CAD) | 10,109,894 | 38.57 | 8.4815 | 82.76 | 79.23 |
+| Shared Decoder | 7,722,438 | 29.46 | 8.4329 | 82.42 | 79.13 |
+| **Shared + w/o MLP (144)** | **3,564,806** | **13.60** | **7.7575** | 82.37 | 78.55 |
+| Shared + w/o MLP (192) | 5,204,234 | 19.85 | 8.4447 | 82.17 | 78.87 |
+| Shared + w/o MLP (256) | 7,745,850 | 29.55 | 8.3925 | 82.20 | 79.21 |
+
+The two contributions are complementary. The **shared decoder** alone removes ~24% of the parameters by replacing the dual command/parameter decoders with a single weight-shared decoder and task-specific output heads. Stacking the **streamlined encoding** (removing the embedding-stage MLP, letting Transformer self-attention alone capture cross-field interactions between view, command, and parameter tokens) and reducing `d_model` to 144 yields the main config: a 64.74% parameter reduction, the smallest file size, and the fastest inference, while staying within 0.5% of the baseline on command accuracy and 0.9% on parameter accuracy.
 
 ## 🌹 Acknowledgement
 
 This repository builds upon the following awesome datasets and projects:
 
+- [Drawing2CAD](https://arxiv.org/abs/2508.18733) (Qin et al., 2025)
 - [DeepCAD](https://github.com/ChrisWu1997/DeepCAD)
 - [FreeCAD](https://github.com/FreeCAD/FreeCAD)
 - [CairoSVG](https://cairosvg.org/)
 
-## Cite
+## 📝 Citation
 
 If you find this project useful for your research, please use the following BibTeX entry.
 
 ```
-@article{qin2025drawing2cad,
-  title={Drawing2CAD: Sequence-to-Sequence Learning for CAD Generation from Vectorized Drawings},
-  author={Qin, Feiwei and Lu, Shichao and Hou, Junhao and Wang, Changmiao and Fang, Meie and Liu, Ligang},
-  journal={arXiv preprint arXiv:2508.18733},
-  year={2025}
+@inproceedings{kim2026swiftcad,
+  title={SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers},
+  author={Juyoung Kim and Seongjun Choi and Jiyeon Lim and Wongi Park and Soomok Lee},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)},
+  year={2026}
 }
 ```
+
+(BibTeX will be updated once camera-ready proceedings are published.)

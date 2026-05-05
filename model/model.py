@@ -105,7 +105,10 @@ class Encoder(nn.Module):
 
         view_num = int(cfg.input_option[0])
         seq_len = view_num * cfg.svg_max_total_len
-        self.embedding = SVGEmbeddingNoMlp(cfg, seq_len)
+        if cfg.use_mlp_embedding:
+            self.embedding = SVGEmbedding(cfg, seq_len)
+        else:
+            self.embedding = SVGEmbeddingNoMlp(cfg, seq_len)
 
         encoder_layer = TransformerEncoderLayerImproved(cfg.d_model, cfg.n_heads, cfg.dim_feedforward, cfg.dropout)
         encoder_norm = LayerNorm(cfg.d_model)
@@ -249,18 +252,26 @@ class SVG2CADTransformer(nn.Module):
 
         self.bottleneck = Bottleneck(cfg)
 
-        # self.command_decoder = CommandDecoder(cfg)
-        # self.args_decoder = ArgsDecoder(cfg)
-        self.decoder = Decoder(cfg)
+        if cfg.use_shared_decoder:
+            self.decoder = Decoder(cfg)
+            self.use_shared = True
+        else:
+            self.command_decoder = CommandDecoder(cfg)
+            self.args_decoder = ArgsDecoder(cfg)
+            self.use_shared = False
 
     def forward(self, views_enc, commands_enc, args_enc):
         views_enc_, commands_enc_, args_enc_ = _make_seq_first(views_enc, commands_enc, args_enc)  # Possibly None, None, None
 
         z = self.encoder(views_enc_, commands_enc_, args_enc_)
         z = self.bottleneck(z)
-        
-        """command-guided generation"""
-        command_logits, args_logits = self.decoder(z)
+
+        if self.use_shared:
+            command_logits, args_logits = self.decoder(z)
+        else:
+            """command-guided generation (dual decoder, Drawing2CAD baseline)"""
+            command_logits, guidance = self.command_decoder(z)
+            args_logits = self.args_decoder(z, guidance)
         command_logits = _make_batch_first(command_logits)
         args_logits = _make_batch_first(args_logits)
 

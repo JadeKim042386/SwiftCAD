@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers</title>
+  <meta name="description" content="SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers.">
+  <meta name="keywords" content="CAD, Parametric CAD, Transformer, Shared Decoder, SVG, Drawing2CAD, CVPR 2026 Workshop, 3D4S">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:title" content="SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers">
+  <meta property="og:description" content="SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="static/images/teaser.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers">
+  <meta name="twitter:description" content="SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers.">
+  <meta name="twitter:image" content="static/images/teaser.png">
+
+  <!-- Bulma -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Academicons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/academicons@1.9.4/css/academicons.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans:wght@400;500;700&family=Source+Code+Pro&display=swap">
+
+  <!-- Custom -->
+  <link rel="stylesheet" href="static/css/index.css">
+  <script defer src="static/js/index.js"></script>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="publication-title">
+              SwiftCAD: Efficient Parametric CAD Generation<br>with Shared Decoder Transformers
+            </h1>
+
+            <div class="publication-authors">
+              <span class="author-block">
+                <a href="mailto:jk042386@gmail.com">Juyoung Kim</a><sup>1*</sup>,
+              </span>
+              <span class="author-block">
+                <a href="mailto:sjchoi.dp@yonsei.ac.kr">Seongjun Choi</a><sup>2*</sup>,
+              </span>
+              <span class="author-block">
+                Jiyeon Lim<sup>3</sup>,
+              </span>
+              <span class="author-block">
+                Wongi Park<sup>4</sup>,
+              </span>
+              <span class="author-block">
+                Soomok Lee<sup>5</sup>
+              </span>
+            </div>
+
+            <div class="publication-affiliations">
+              <span><sup>1</sup>Metacle</span>&nbsp;&nbsp;
+              <span><sup>2</sup>Yonsei University</span>&nbsp;&nbsp;
+              <span><sup>3</sup>Samsung Electronics</span>&nbsp;&nbsp;
+              <span><sup>4</sup>Ajou University</span>&nbsp;&nbsp;
+              <span><sup>5</sup>Kennesaw State University</span>
+            </div>
+
+            <div class="equal-contribution">
+              <sup>*</sup>Equal contribution.
+            </div>
+
+            <div class="publication-venue">
+              <strong>CVPR 2026 Workshop 3D4S</strong>
+            </div>
+
+            <!-- Buttons -->
+            <div class="publication-links">
+              <!-- Paper (PDF) - disabled, coming soon -->
+              <span class="button is-rounded is-disabled" title="PDF coming soon" aria-disabled="true">
+                <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                <span>Paper (coming soon)</span>
+              </span>
+
+              <!-- Code -->
+              <a class="button is-rounded" href="https://github.com/JadeKim042386/SwiftCAD" target="_blank" rel="noopener">
+                <span class="icon"><i class="fab fa-github"></i></span>
+                <span>Code</span>
+              </a>
+
+              <!-- Dataset -->
+              <a class="button is-rounded" href="https://drive.google.com/drive/folders/1t9uO2iFh1eVDXRCKUEonKPBu8WGYA8wU?usp=sharing" target="_blank" rel="noopener">
+                <span class="icon"><i class="fas fa-database"></i></span>
+                <span>Dataset</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Teaser -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <figure class="teaser-figure">
+        <img src="static/images/figure_1.png" alt="SwiftCAD teaser: comparison of manual reconstruction, raster-based methods, and our SwiftCAD pipeline.">
+      </figure>
+    </div>
+  </section>
+
+  <!-- Abstract -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <h2 class="section-title">Abstract</h2>
+          <div class="content has-text-justified">
+            <p>
+              Maintaining precise geometric dimensions is critical in Computer-Aided Design (CAD). Recent works have utilized various representations for 3D generative modeling, such as voxels, point clouds, and polygon meshes. In parametric CAD generation, approaches using Scalable Vector Graphics (SVG) have demonstrated superior performance in preserving precise dimensions. However, although industrial applications require efficient operation on limited hardware, existing architectures incur additional computational costs due to redundant structural components. In this paper, we propose two methods to address these efficiency challenges. First, we remove redundant MLP layers to simplify the encoding process. Second, we adopt a weight-shared single-decoder (shared decoder) to unify command and parameter prediction. To train and evaluate our methods, we use the CAD-VGDrawing dataset. Our method achieves comparable generation accuracy while significantly reducing model size and inference time.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Method -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <h2 class="section-title">Method</h2>
+
+          <h3 class="subsection-title">1. Streamlined Encoding without MLP</h3>
+          <div class="content has-text-justified">
+            <p>
+              Drawing2CAD applies an MLP after concatenating view/command/parameter embeddings to facilitate cross-field interactions. We observe that the categorical cardinality of these fields is extremely low (4 views, 4 command tokens), so a learned linear mixer is unnecessary. Removing it lets the Transformer encoder's self-attention alone capture cross-field interactions. The encoder self-attention maps (Figure 4) confirm that structural attention patterns are preserved &mdash; and even sharper &mdash; without the MLP.
+            </p>
+          </div>
+
+          <h3 class="subsection-title">2. Shared Decoder Architecture</h3>
+          <div class="content has-text-justified">
+            <p>
+              Drawing2CAD uses a dual-decoder design (one for CAD command types, one for parameters), wired via command-guided generation. We replace this with a single Transformer decoder shared across both tasks, with separate task-specific output heads (<code>MLP_cmd</code>, <code>MLP_param</code>). The shared backbone implicitly encodes command-parameter dependencies, removing the need for explicit cross-decoder guidance.
+            </p>
+            <p>
+              Combined, these reduce parameters by <strong>64.74%</strong> (10.1M &rarr; 3.6M) and inference time by <strong>8.6%</strong> on the test set, with negligible accuracy loss.
+            </p>
+          </div>
+
+          <figure class="method-figure">
+            <img src="static/images/figure_2.png" alt="SwiftCAD method overview pipeline.">
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quantitative Results -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <h2 class="section-title">Quantitative Results</h2>
+
+          <div class="table-container">
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Parameters</th>
+                  <th>File Size (MB)</th>
+                  <th>Inf. Time (s)</th>
+                  <th>ACC<sub>cmd</sub></th>
+                  <th>ACC<sub>param</sub></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Baseline (Drawing2CAD)</td>
+                  <td>10,109,894</td>
+                  <td>38.57</td>
+                  <td>8.4815</td>
+                  <td>82.76</td>
+                  <td>79.23</td>
+                </tr>
+                <tr>
+                  <td>Shared Decoder</td>
+                  <td>7,722,438</td>
+                  <td>29.46</td>
+                  <td>8.4329</td>
+                  <td>82.42</td>
+                  <td>79.13</td>
+                </tr>
+                <tr class="main-result">
+                  <td>Shared + w/o MLP (144)</td>
+                  <td>3,564,806</td>
+                  <td>13.60</td>
+                  <td>7.7575</td>
+                  <td>82.37</td>
+                  <td>78.55</td>
+                </tr>
+                <tr>
+                  <td>Shared + w/o MLP (192)</td>
+                  <td>5,204,234</td>
+                  <td>19.85</td>
+                  <td>8.4447</td>
+                  <td>82.17</td>
+                  <td>78.87</td>
+                </tr>
+                <tr>
+                  <td>Shared + w/o MLP (256)</td>
+                  <td>7,745,850</td>
+                  <td>29.55</td>
+                  <td>8.3925</td>
+                  <td>82.20</td>
+                  <td>79.21</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="content has-text-justified">
+            <p>
+              Our smallest configuration, <strong>Shared + w/o MLP (144)</strong>, delivers a <strong>64.74% reduction in parameters</strong> (10.1M &rarr; 3.6M) and an <strong>8.6% inference speedup</strong> over the Drawing2CAD baseline. Despite the dramatic compression, command accuracy stays within <strong>0.5%</strong> and parameter accuracy within <strong>0.9%</strong> of the baseline &mdash; making this configuration the most attractive operating point for resource-constrained CAD applications.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BibTeX -->
+  <section class="section" id="bibtex">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <h2 class="section-title">BibTeX</h2>
+          <pre class="bibtex-block"><code>@inproceedings{kim2026swiftcad,
+  title={SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers},
+  author={Juyoung Kim and Seongjun Choi and Jiyeon Lim and Wongi Park and Soomok Lee},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)},
+  year={2026}
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Acknowledgement -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <h2 class="section-title">Acknowledgement</h2>
+          <div class="content acknowledgement has-text-justified">
+            <p>
+              We thank the authors of <a href="https://arxiv.org/abs/2508.18733" target="_blank" rel="noopener">Drawing2CAD</a> (Qin et al., 2025) for releasing their codebase and the CAD-VGDrawing dataset, which serve as the foundation for this work. We also gratefully acknowledge the <a href="https://github.com/ChrisWu1997/DeepCAD" target="_blank" rel="noopener">DeepCAD</a> project, the <a href="https://www.freecad.org/" target="_blank" rel="noopener">FreeCAD</a> community, and the <a href="https://cairosvg.org/" target="_blank" rel="noopener">CairoSVG</a> developers, whose tools enabled our data preparation pipeline.
+            </p>
+            <p>
+              This site uses the <a href="https://nerfies.github.io/" target="_blank" rel="noopener">Nerfies project page template</a>, available under a <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths has-text-centered footer-content">
+          <p>
+            Website source adapted from the <a href="https://github.com/nerfies/nerfies.github.io" target="_blank" rel="noopener">Nerfies</a> project page.
+          </p>
+          <p>
+            Licensed under
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">
+              <img alt="Creative Commons License" style="border-width:0; vertical-align: middle; margin-left: 0.25rem;"
+                src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png">
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

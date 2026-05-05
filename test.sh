@@ -1,2 +1,5 @@
 #!/bin/bash
-python test.py --input_option 4x --exp_name share_decoder_6layer_4x_train
+# SwiftCAD paper main config (Table 2 row "Shared + w/o MLP (144)").
+# Defaults already enable shared decoder and disable MLP embedding;
+# d_model is set explicitly for clarity.
+python test.py --input_option 4x --d_model 144 --exp_name swiftcad_main

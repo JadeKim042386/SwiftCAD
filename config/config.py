@@ -20,6 +20,10 @@ class Config(object):
             print("{0:20}".format(k), v)
             self.__setattr__(k, v)
 
+        # Override d_model / dim_z from CLI (paper ablation supports 144, 192, 256).
+        self.d_model = args.d_model
+        self.dim_z = args.d_model
+
         # experiment paths
         self.exp_dir = os.path.join(self.proj_dir, self.exp_name)
         if phase == "train" and args.cont is not True and os.path.exists(self.exp_dir):
@@ -50,11 +54,10 @@ class Config(object):
 
         self.n_layers = 4                # Number of Encoder blocks
         self.n_layers_decode = 4         # Number of Decoder blocks
-        self.n_heads = 8                 # Transformer config: number of heads
-        self.dim_feedforward = 512      # Transformer config: FF dimensionality
-        self.d_model = 144               # Transformer config: model dimensionality
+        self.n_heads = 8                 # Transformer config: number of heads (works for 144, 192, 256)
+        self.dim_feedforward = 512       # Transformer config: FF dimensionality
         self.dropout = 0.1               # Dropout rate used in basic layers and Transformers
-        self.dim_z = 144                 # Latent vector dimensionality
+        # NOTE: self.d_model and self.dim_z are set in __init__ from --d_model CLI arg.
 
         self.cad_max_n_ext = CAD_MAX_N_EXT
         self.cad_max_n_loops = CAD_MAX_N_LOOPS
@@ -93,6 +96,19 @@ class Config(object):
         parser.add_argument('--vis_frequency', type=int, default=2000, help="visualize output every x iterations")
 
         parser.add_argument('--input_option', type=str, default="3x", help="number of input views (1x, 3x, 4x)")
-        
+
+        # --- Paper ablation flags (Table 2) ---
+        # Shared decoder (paper's main contribution). Default True.
+        # Use --no-use_shared_decoder to disable (dual decoder baseline).
+        parser.add_argument('--use_shared_decoder', action=argparse.BooleanOptionalAction,
+                            default=True, help="use shared decoder (paper main); pass --no-use_shared_decoder for dual decoder baseline")
+        # MLP embedding flag. Default False -> SVGEmbeddingNoMlp (paper main).
+        # Pass --use_mlp_embedding to use the legacy SVGEmbedding (with MLP).
+        parser.add_argument('--use_mlp_embedding', action='store_true', default=False,
+                            help="use legacy SVGEmbedding with MLP (Drawing2CAD baseline). Default: SVGEmbeddingNoMlp.")
+        # Model dimensionality (paper ablates 144 / 192 / 256).
+        parser.add_argument('--d_model', type=int, default=144, choices=[144, 192, 256],
+                            help="transformer model dimensionality (paper ablates 144/192/256)")
+
         args = parser.parse_args()
         return parser, args

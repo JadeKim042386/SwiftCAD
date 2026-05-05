@@ -1,0 +1,219 @@
+/* SwiftCAD project page custom styles */
+
+body {
+  font-family: 'Noto Sans', 'Google Sans', sans-serif;
+  background-color: #fff;
+  color: #1f2937;
+}
+
+.publication-title {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-weight: 700;
+  font-size: 2.4rem;
+  line-height: 1.2;
+  margin-bottom: 1.25rem;
+}
+
+.publication-authors {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.publication-authors .author-block {
+  display: inline-block;
+  margin: 0 0.4rem;
+}
+
+.publication-authors a {
+  color: #1f2937;
+  text-decoration: none;
+}
+
+.publication-authors a:hover {
+  text-decoration: underline;
+}
+
+.publication-affiliations {
+  font-size: 0.95rem;
+  color: #4b5563;
+  margin-bottom: 0.5rem;
+}
+
+.publication-venue {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-size: 1.05rem;
+  color: #1f2937;
+  margin-top: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.equal-contribution {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 1.25rem;
+}
+
+.publication-links {
+  margin-top: 1.5rem;
+}
+
+.publication-links .button {
+  margin: 0.25rem;
+  background-color: #1f2937;
+  color: #fff;
+  border: none;
+}
+
+.publication-links .button:hover {
+  background-color: #374151;
+  color: #fff;
+}
+
+.publication-links .button.is-disabled,
+.publication-links .button[disabled] {
+  background-color: #9ca3af;
+  color: #fff;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.publication-links .icon {
+  margin-right: 0.35rem;
+}
+
+.section-title {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.subsection-title {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.teaser-figure,
+.method-figure,
+.qualitative-figure,
+.analysis-figure {
+  margin: 1.5rem auto;
+  text-align: center;
+}
+
+.teaser-figure img,
+.method-figure img,
+.qualitative-figure img,
+.analysis-figure img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+
+.figure-caption {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  color: #4b5563;
+  line-height: 1.5;
+  text-align: left;
+  max-width: 60rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.results-table {
+  margin: 1.5rem auto;
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 60rem;
+  font-size: 0.95rem;
+}
+
+.results-table th,
+.results-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: right;
+}
+
+.results-table th:first-child,
+.results-table td:first-child {
+  text-align: left;
+}
+
+.results-table thead th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.results-table .main-result {
+  background-color: #fef3c7;
+  font-weight: 700;
+}
+
+.results-table .main-result td {
+  border-bottom: 1px solid #f59e0b;
+}
+
+.bibtex-block {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 1rem;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 0.9rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.acknowledgement,
+.footer-content {
+  font-size: 0.95rem;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.section.hero-body {
+  padding: 3rem 1.5rem 2rem;
+  text-align: center;
+}
+
+.footer {
+  background-color: #f9fafb;
+  padding: 2rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.footer a {
+  color: #1f2937;
+  text-decoration: underline;
+}
+
+.columns.is-analysis > .column {
+  padding: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .publication-title {
+    font-size: 1.8rem;
+  }
+  .publication-authors {
+    font-size: 1rem;
+  }
+  .results-table {
+    font-size: 0.85rem;
+  }
+  .results-table th,
+  .results-table td {
+    padding: 0.4rem 0.45rem;
+  }
+}
