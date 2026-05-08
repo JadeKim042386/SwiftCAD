@@ -9,13 +9,11 @@
   ·
   Jiyeon Lim<sup>3</sup>
   ·
-  Wongi Park<sup>4</sup>
-  ·
-  Soomok Lee<sup>5</sup>
+  Soomok Lee<sup>4</sup>
 </h4>
 
 <h5>
-  <sup>1</sup>Metacle  <sup>2</sup>Yonsei University  <sup>3</sup>Samsung Electronics  <br><sup>4</sup>Ajou University  <sup>5</sup>Kennesaw State University
+  <sup>1</sup>Metacle  <sup>2</sup>Yonsei University  <sup>3</sup>Samsung Electronics  <sup>4</sup>Kennesaw State University
 </h5>
 
 <h4>
@@ -127,9 +125,9 @@ Quantitative comparison on CAD-VGDrawing (Table 2 of the paper). All entries use
 |---|---:|---:|---:|---:|---:|
 | Baseline (Drawing2CAD) | 10,109,894 | 38.57 | 8.4815 | 82.76 | 79.23 |
 | Shared Decoder | 7,722,438 | 29.46 | 8.4329 | 82.42 | 79.13 |
-| **Shared + w/o MLP (144)** | **3,564,806** | **13.60** | **7.7575** | 82.37 | 78.55 |
-| Shared + w/o MLP (192) | 5,204,234 | 19.85 | 8.4447 | 82.17 | 78.87 |
 | Shared + w/o MLP (256) | 7,745,850 | 29.55 | 8.3925 | 82.20 | 79.21 |
+| Shared + w/o MLP (192) | 5,204,234 | 19.85 | 8.4447 | 82.17 | 78.87 |
+| **Shared + w/o MLP (144)** | **3,564,806** | **13.60** | **7.7575** | 82.37 | 78.55 |
 
 The two contributions are complementary. The **shared decoder** alone removes ~24% of the parameters by replacing the dual command/parameter decoders with a single weight-shared decoder and task-specific output heads. Stacking the **streamlined encoding** (removing the embedding-stage MLP, letting Transformer self-attention alone capture cross-field interactions between view, command, and parameter tokens) and reducing `d_model` to 144 yields the main config: a 64.74% parameter reduction, the smallest file size, and the fastest inference, while staying within 0.5% of the baseline on command accuracy and 0.9% on parameter accuracy.
 
@@ -149,7 +147,7 @@ If you find this project useful for your research, please use the following BibT
 ```
 @inproceedings{kim2026swiftcad,
   title={SwiftCAD: Efficient Parametric CAD Generation with Shared Decoder Transformers},
-  author={Juyoung Kim and Seongjun Choi and Jiyeon Lim and Wongi Park and Soomok Lee},
+  author={Juyoung Kim and Seongjun Choi and Jiyeon Lim and Soomok Lee},
   booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)},
   year={2026}
 }
