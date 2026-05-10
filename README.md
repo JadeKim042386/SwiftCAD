@@ -145,7 +145,7 @@ Step (2) writes per-config `proj_log/<exp_name>/cd_ir.txt` (per-sample TSV) and 
 
 Quantitative comparison on CAD-VGDrawing (Table 2 of the paper). All entries use the `4x` input option.
 
-| Method | Parameters | File Size (MB) | Inf. Time (s) | ACC<sub>cmd</sub> | ACC<sub>param</sub> | IR ↓ | MCD ↓ |
+| Method | Parameters | File Size (MB) | Inf. Time (s) | ACC<sub>cmd</sub> ↑ | ACC<sub>param</sub> ↑ | IR ↓ | MCD ↓ |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Baseline (Drawing2CAD) | 10,109,894 | 38.57 | 8.4815 | 82.76 | 79.23 | 20.44 | 11.16 |
 | Shared Decoder | 7,722,438 | 29.46 | 8.4329 | 82.42 | 79.13 | 21.52 | 11.29 |
