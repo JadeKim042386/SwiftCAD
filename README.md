@@ -117,6 +117,30 @@ python test.py --input_option 4x --d_model 256 --exp_name shared_nomlp_256
 
 After inference, the final results will be saved under `proj/your_exp_name/test_results`. To evaluate the model inference results and to export and visualize the final CAD models, please refer to the code from [DeepCAD](https://github.com/ChrisWu1997/DeepCAD).
 
+## 📐 CD / IR Evaluation
+
+Quantitative evaluation following the Drawing2CAD protocol — **Mean Chamfer Distance (MCD = mean CD × 10²)** and **Invalidity Ratio (IR, %)** — uses `pythonocc-core` (not in `requirements.txt`):
+
+```bash
+conda install -c conda-forge pythonocc-core=7.7.0
+```
+
+After running `test.py` for each of the five paper configs (`baseline`, `shared_decoder`, `shared_nomlp_{144,192,256}`):
+
+```bash
+# (1) Precompute GT point clouds — one-time
+python evaluate/precompute_pc.py \
+    --src_test_results proj_log/baseline/test_results \
+    --output data/cad_vec_pc --n_points 2000 --n_jobs 8
+
+# (2) Evaluate all five paper configs
+python evaluate/eval_paper_models.py --gt_pc_root data/cad_vec_pc --n_jobs 8 --seed 0
+```
+
+Step (1) reconstructs each GT CAD vector via OCC and freezes a 2,000-point cloud per sample to `data/cad_vec_pc/`. The `--src_test_results` path reads `gt_vec` from `test.py` outputs (byte-equivalent to `cad_vec/<id>.h5` after EOS truncation) and avoids requiring the full CAD-VGDrawing dataset locally; `--src data/cad_vec --split_json ... --phase test` is also supported when the dataset is available.
+
+Step (2) writes per-config `proj_log/<exp_name>/cd_ir.txt` (per-sample TSV) and `cd_ir.txt.json` (machine-readable summary), plus a combined `proj_log/cd_ir_summary.md`. Re-running skips configs whose JSON already matches the requested settings; pass `--force` to recompute, or `--only <a>,<b>` to run a subset. For ad-hoc single-experiment evaluation, call `evaluate/eval_cd_ir.py` directly (see `--help`).
+
 ## 📊 Results
 
 Quantitative comparison on CAD-VGDrawing (Table 2 of the paper). All entries use the `4x` input option.
