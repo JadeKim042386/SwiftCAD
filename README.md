@@ -115,63 +115,7 @@ python test.py --input_option 4x --d_model 192 --exp_name shared_nomlp_192
 python test.py --input_option 4x --d_model 256 --exp_name shared_nomlp_256
 ```
 
-After inference, the final results will be saved under `proj_log/your_exp_name/test_results`. To export and visualize the final CAD models, please refer to the code from [DeepCAD](https://github.com/ChrisWu1997/DeepCAD).
-
-## 📐 CD / IR Evaluation
-
-Quantitative evaluation against the Drawing2CAD protocol: **Mean Chamfer Distance (MCD = mean CD × 10²)** between generated and ground-truth point clouds, and **Invalidity Ratio (IR, %)** — the fraction of test samples for which the predicted CAD vector cannot be reconstructed into a valid solid. Both are lower-is-better.
-
-This step requires `pythonocc-core` (used by `evaluate/cadlib`). It is **not** in `requirements.txt`; install it via conda:
-
-```bash
-conda install -c conda-forge pythonocc-core=7.7.0
-```
-
-### Step 1 — Run inference for the five paper configs
-
-Place the trained checkpoints under `proj_log/<exp_name>/model/` and run the five `python test.py ...` commands listed in the *🚀 Training* section above (one per `exp_name`). Each writes `proj_log/<exp_name>/test_results/<data_id>_vec.h5` containing both `out_vec` (prediction) and `gt_vec` (ground truth).
-
-### Step 2 — Precompute ground-truth point clouds (one-time)
-
-This is the canonical Drawing2CAD-style step: reconstruct each GT CAD vector via OCC and freeze a point cloud sample to disk. The orchestrator below loads these `.ply` files at evaluation time.
-
-```bash
-# (Recommended) Build GT pcs from gt_vec stored in test_results — no extra dataset download required.
-python evaluate/precompute_pc.py \
-    --src_test_results proj_log/baseline/test_results \
-    --output data/cad_vec_pc --n_points 2000 --n_jobs 8
-
-# (Alternative) Build from the CAD-VGDrawing release. Functionally equivalent (see note below).
-python evaluate/precompute_pc.py \
-    --src data/cad_vec --split_json data/train_val_test_split.json --phase test \
-    --output data/cad_vec_pc --n_points 2000 --n_jobs 8
-```
-
-`gt_vec` (the field test.py writes into each `*_vec.h5`) is byte-equivalent to `cad_vec/<id>.h5` "vec" content after EOS truncation — verified empirically — so the two precompute paths produce identical point clouds. The `--src_test_results` path is the simpler default because it does not require the dataset to be available locally.
-
-### Step 3 — Evaluate CD and IR for the five paper configs
-
-```bash
-python evaluate/eval_paper_models.py --gt_pc_root data/cad_vec_pc --n_jobs 8 --seed 0
-
-# Subset
-python evaluate/eval_paper_models.py --gt_pc_root data/cad_vec_pc --only shared_nomlp_144,baseline
-```
-
-The orchestrator runs the five `exp_name`s reported in Table 2 (`baseline`, `shared_decoder`, `shared_nomlp_256`, `shared_nomlp_192`, `shared_nomlp_144`), parses each per-config `cd_ir.txt.json`, and writes a Markdown summary to `proj_log/cd_ir_summary.md`. Results for each config are cached at `proj_log/<exp_name>/cd_ir.txt` (per-sample TSV + summary footer) and `cd_ir.txt.json` (machine-readable). Re-running skips configs whose JSON already matches the requested settings; pass `--force` to recompute.
-
-For ad-hoc single-experiment evaluation, call the underlying script directly:
-
-```bash
-python evaluate/eval_cd_ir.py --src proj_log/swiftcad_main/test_results --gt_pc_root data/cad_vec_pc --n_jobs 8
-```
-
-A self-contained `--gt_from_h5` mode exists for quick experiments without precomputing — it regenerates GT point clouds at evaluation time. Be aware that this mode reports IR over the full test set and includes GT-side OCC failures in the numerator: `IR = (n_pred_invalid + n_gt_invalid) / N_total`. The numbers in this README come from the precomputed-`--gt_pc_root` mode (`IR = n_pred_invalid / N_evaluated`, GT failures excluded from both).
-
-**Notes**
-- `--n_points 2000` matches the Drawing2CAD `collect_gen_pc.py` default. Use `--n_points 8192` for a denser GT pool to be downsampled at runtime — but absolute MCD values may shift.
-- Default normalization is **asymmetric** (`out_pc` rescaled when `max(|·|) > 2`, `gt_pc` left as-is). This matches Drawing2CAD; pass `--normalize_gt` for the symmetric variant.
-- `--n_jobs 1` is the safest fallback for debugging (avoids OCC + multiprocessing edge cases) and is faster for very small `--num`.
+After inference, the final results will be saved under `proj/your_exp_name/test_results`. To evaluate the model inference results and to export and visualize the final CAD models, please refer to the code from [DeepCAD](https://github.com/ChrisWu1997/DeepCAD).
 
 ## 📊 Results
 
