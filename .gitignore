@@ -218,3 +218,5 @@ pyrightconfig.json
 **/wandb/
 **.svg
 **.tar
+# evaluation artifacts (downloaded checkpoints / extracted experiments)
+**/ckpts/

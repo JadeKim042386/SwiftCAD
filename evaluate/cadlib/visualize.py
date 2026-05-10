@@ -11,9 +11,9 @@ from .extrude import *
 from .sketch import Loop, Profile
 from .curves import *
 import os
+import tempfile
 import trimesh
 from trimesh.sample import sample_surface
-import random
 
 
 def vec2CADsolid(vec, is_numerical=True, n=256):
@@ -117,17 +117,16 @@ def point_local2global(point, sketch_plane: CoordSystem, to_gp_Pnt=True):
     return g_point
 
 
-def CADsolid2pc(shape, n_points, name=None):
-    """convert opencascade solid to point clouds"""
+def CADsolid2pc(shape, n_points):
+    """convert opencascade solid to point clouds via a per-call temporary STL."""
     bbox = Bnd_Box()
     brepbndlib_Add(shape, bbox)
     if bbox.IsVoid():
         raise ValueError("box check failed")
 
-    if name is None:
-        name = random.randint(100000, 999999)
-    write_stl_file(shape, "tmp_out_{}.stl".format(name))
-    out_mesh = trimesh.load("tmp_out_{}.stl".format(name))
-    os.system("rm tmp_out_{}.stl".format(name))
+    with tempfile.TemporaryDirectory() as td:
+        stl_path = os.path.join(td, "shape.stl")
+        write_stl_file(shape, stl_path)
+        out_mesh = trimesh.load(stl_path)
     out_pc, _ = sample_surface(out_mesh, n_points)
     return out_pc

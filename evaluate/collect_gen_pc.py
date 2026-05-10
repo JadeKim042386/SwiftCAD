@@ -1,6 +1,7 @@
 import os
 import json
 import glob
+import warnings
 import numpy as np
 import h5py
 from joblib import Parallel, delayed
@@ -9,6 +10,12 @@ import sys
 sys.path.append("..")
 from plyfile import PlyData, PlyElement
 from cadlib.visualize import vec2CADsolid, CADsolid2pc
+
+warnings.warn(
+    "evaluate/collect_gen_pc.py is deprecated; use evaluate/precompute_pc.py instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 parser = argparse.ArgumentParser()
@@ -55,7 +62,7 @@ def process_one(path):
         return None
 
     try:
-        out_pc = CADsolid2pc(shape, args.n_points, data_id)
+        out_pc = CADsolid2pc(shape, args.n_points)
     except Exception as e:
         print("convert pc failed:", data_id)
         return None

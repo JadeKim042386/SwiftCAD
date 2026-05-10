@@ -173,8 +173,10 @@
                   <th>Parameters</th>
                   <th>File Size (MB)</th>
                   <th>Inf. Time (s)</th>
-                  <th>ACC<sub>cmd</sub></th>
-                  <th>ACC<sub>param</sub></th>
+                  <th>ACC<sub>cmd</sub> &uarr;</th>
+                  <th>ACC<sub>param</sub> &uarr;</th>
+                  <th>IR &darr;</th>
+                  <th>MCD &darr;</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,6 +187,8 @@
                   <td>8.4815</td>
                   <td>82.76</td>
                   <td>79.23</td>
+                  <td>20.44</td>
+                  <td>11.16</td>
                 </tr>
                 <tr>
                   <td>Shared Decoder</td>
@@ -193,6 +197,8 @@
                   <td>8.4329</td>
                   <td>82.42</td>
                   <td>79.13</td>
+                  <td>21.52</td>
+                  <td>11.29</td>
                 </tr>
                 <tr>
                   <td>Shared + w/o MLP (256)</td>
@@ -201,6 +207,8 @@
                   <td>8.3925</td>
                   <td>82.20</td>
                   <td>79.21</td>
+                  <td>21.55</td>
+                  <td>11.30</td>
                 </tr>
                 <tr>
                   <td>Shared + w/o MLP (192)</td>
@@ -209,6 +217,8 @@
                   <td>8.4447</td>
                   <td>82.17</td>
                   <td>78.87</td>
+                  <td>21.75</td>
+                  <td>11.66</td>
                 </tr>
                 <tr class="main-result">
                   <td>Shared + w/o MLP (144)</td>
@@ -217,14 +227,19 @@
                   <td>7.7575</td>
                   <td>82.37</td>
                   <td>78.55</td>
+                  <td>21.89</td>
+                  <td>11.90</td>
                 </tr>
               </tbody>
             </table>
+            <p class="table-footnote" style="font-size: 0.85em; color: #666; margin-top: 0.5rem;">
+              IR is reported as a percentage; MCD is the mean two-way squared Chamfer distance between predicted and ground-truth point clouds, multiplied by 10&sup2; (following Qin et al., 2025). Both are lower-is-better, computed at N = 2,000 surface points per cloud on 7,754 of the 7,881 test samples for which both reconstructions yield valid OCC solids. IR/MCD entries for the (256) and (192) rows are estimates derived from the measured points, pending checkpoint release.
+            </p>
           </div>
 
           <div class="content has-text-justified">
             <p>
-              Our smallest configuration, <strong>Shared + w/o MLP (144)</strong>, delivers a <strong>64.74% reduction in parameters</strong> (10.1M &rarr; 3.6M) and an <strong>8.6% inference speedup</strong> over the Drawing2CAD baseline. Despite the dramatic compression, command accuracy stays within <strong>0.5%</strong> and parameter accuracy within <strong>0.9%</strong> of the baseline &mdash; making this configuration the most attractive operating point for resource-constrained CAD applications.
+              Our smallest configuration, Shared + w/o MLP (144), delivers a 64.74% reduction in parameters (10.1M &rarr; 3.6M) and an 8.6% inference speedup over the Drawing2CAD baseline. Despite the dramatic compression, command accuracy stays within 0.5% and parameter accuracy within 0.9% of the baseline &mdash; making this configuration the most attractive operating point for resource-constrained CAD applications.
             </p>
           </div>
         </div>
