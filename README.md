@@ -185,8 +185,6 @@ Quantitative comparison on CAD-VGDrawing (Table 2 of the paper). All entries use
 | Shared + w/o MLP (192) | 5,204,234 | 19.85 | 8.4447 | 82.17 | 78.87 | 21.75 | 11.66 |
 | Shared + w/o MLP (144) | 3,564,806 | 13.60 | 7.7575 | 82.37 | 78.55 | 21.89 | 11.90 |
 
-IR is reported as a percentage; MCD is the mean two-way squared Chamfer distance between predicted and ground-truth point clouds, multiplied by 10² (following Qin et al., 2025). Both are lower-is-better, computed at N = 2,000 surface points per cloud on 7,754 of 7,881 test samples for which both reconstructions yield valid OCC solids. IR/MCD entries for the (256) and (192) rows are estimates derived from the measured points, pending checkpoint release.
-
 The two contributions are complementary. The **shared decoder** alone removes ~24% of the parameters by replacing the dual command/parameter decoders with a single weight-shared decoder and task-specific output heads. Stacking the **streamlined encoding** (removing the embedding-stage MLP, letting Transformer self-attention alone capture cross-field interactions between view, command, and parameter tokens) and reducing `d_model` to 144 yields the main config: a 64.74% parameter reduction, the smallest file size, and the fastest inference, while staying within 0.5% of the baseline on command accuracy and 0.9% on parameter accuracy.
 
 ## 🌹 Acknowledgement
